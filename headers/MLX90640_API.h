@@ -17,7 +17,7 @@
 #ifndef _MLX90640_API_H_
 #define _MLX90640_API_H_
 
-#define SCALEALPHA 0.000001
+#define SCALEALPHA 0.000001f
     
 typedef struct
     {
