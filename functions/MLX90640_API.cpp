@@ -404,7 +404,7 @@ int MLX90640_GetCurMode(uint8_t slaveAddr)
 
 //------------------------------------------------------------------------------
 
-void MLX90640_CalculateTo(uint16_t *frameData, const paramsMLX90640 *params, float emissivity, float tr, float *result)
+void MLX90640_CalculateTo(const uint16_t *frameData, const paramsMLX90640 *params, float emissivity, float tr, float *result)
 {
     float vdd;
     float ta;
@@ -554,7 +554,7 @@ void MLX90640_CalculateTo(uint16_t *frameData, const paramsMLX90640 *params, flo
 
 //------------------------------------------------------------------------------
 
-void MLX90640_GetImage(uint16_t *frameData, const paramsMLX90640 *params, float *result)
+void MLX90640_GetImage(const uint16_t *frameData, const paramsMLX90640 *params, float *result)
 {
     float vdd;
     float ta;
@@ -672,7 +672,7 @@ float MLX90640_GetVdd(const uint16_t *frameData, const paramsMLX90640 *params)
         vdd = vdd - 65536;
     }
     resolutionRAM = (frameData[832] & 0x0C00) >> 10;
-    resolutionCorrection = pow(2, (double)params->resolutionEE) / pow(2, (double)resolutionRAM);
+    resolutionCorrection = exp2f(params->resolutionEE) / exp2f(resolutionRAM);
     vdd = (resolutionCorrection * vdd - params->vdd25) / params->kVdd + 3.3f;
     
     return vdd;
@@ -710,7 +710,7 @@ float MLX90640_GetTa(const uint16_t *frameData, const paramsMLX90640 *params)
 
 //------------------------------------------------------------------------------
 
-int MLX90640_GetSubPageNumber(uint16_t *frameData)
+int MLX90640_GetSubPageNumber(const uint16_t *frameData)
 {
     return frameData[833];    
 
