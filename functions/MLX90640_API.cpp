@@ -18,6 +18,26 @@
 #include <MLX90640_API.h>
 #include <math.h>
 
+
+
+static inline int16_t two_complement_15bit(uint16_t val_u16) {
+    return val_u16 > 32767 ? (int16_t)(val_u16-65536) : (int16_t)val_u16;
+}
+
+static inline int8_t two_complement_7bit(uint16_t val_u16) {
+    return val_u16 > 127 ? (int8_t)(val_u16-128) : (int8_t)val_u16;
+}
+
+static inline int8_t two_complement_7bit_msb(uint16_t val_u16) {
+    return two_complement_7bit(val_u16 >> 8u);
+}
+
+static inline int8_t two_complement_7bit_lsb(uint16_t val_u16) {
+    return two_complement_7bit(val_u16 & 0x00FFu);
+}
+
+
+
 void ExtractVDDParameters(uint16_t *eeData, paramsMLX90640 *mlx90640);
 void ExtractPTATParameters(uint16_t *eeData, paramsMLX90640 *mlx90640);
 void ExtractGainParameters(uint16_t *eeData, paramsMLX90640 *mlx90640);
@@ -857,15 +877,7 @@ void ExtractPTATParameters(uint16_t *eeData, paramsMLX90640 *mlx90640)
 
 void ExtractGainParameters(uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
-    int16_t gainEE;
-    
-    gainEE = eeData[48];
-    if(gainEE > 32767)
-    {
-        gainEE = gainEE -65536;
-    }
-    
-    mlx90640->gainEE = gainEE;    
+    mlx90640->gainEE = two_complement_15bit(eeData[48]);  
 }
 
 //------------------------------------------------------------------------------
@@ -1063,11 +1075,7 @@ void ExtractOffsetParameters(uint16_t *eeData, paramsMLX90640 *mlx90640)
     occRemScale = (eeData[16] & 0x000F);
     occColumnScale = (eeData[16] & 0x00F0) >> 4;
     occRowScale = (eeData[16] & 0x0F00) >> 8;
-    offsetRef = eeData[17];
-    if (offsetRef > 32767)
-    {
-        offsetRef = offsetRef - 65536;
-    }
+    offsetRef = two_complement_15bit(eeData[17]);
     
     for(int i = 0; i < 6; i++)
     {
@@ -1135,32 +1143,16 @@ void ExtractKtaPixelParameters(uint16_t *eeData, paramsMLX90640 *mlx90640)
     float ktaTemp[768];
     float temp;
     
-    KtaRoCo = (eeData[54] & 0xFF00) >> 8;
-    if (KtaRoCo > 127)
-    {
-        KtaRoCo = KtaRoCo - 256;
-    }
+    KtaRoCo = two_complement_7bit_msb(eeData[54]);
     KtaRC[0] = KtaRoCo;
     
-    KtaReCo = (eeData[54] & 0x00FF);
-    if (KtaReCo > 127)
-    {
-        KtaReCo = KtaReCo - 256;
-    }
+    KtaReCo = two_complement_7bit_lsb(eeData[54]);
     KtaRC[2] = KtaReCo;
       
-    KtaRoCe = (eeData[55] & 0xFF00) >> 8;
-    if (KtaRoCe > 127)
-    {
-        KtaRoCe = KtaRoCe - 256;
-    }
+    KtaRoCe = two_complement_7bit_msb(eeData[55]);
     KtaRC[1] = KtaRoCe;
       
-    KtaReCe = (eeData[55] & 0x00FF);
-    if (KtaReCe > 127)
-    {
-        KtaReCe = KtaReCe - 256;
-    }
+    KtaReCe = two_complement_7bit_lsb(eeData[55]);
     KtaRC[3] = KtaReCe;
   
     ktaScale1 = ((eeData[56] & 0x00F0) >> 4) + 8;
