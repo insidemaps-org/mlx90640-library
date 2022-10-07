@@ -49,27 +49,27 @@ static inline int8_t two_complement_7bit_lsb(uint16_t val_u16) {
 
 
 
-static void ExtractVDDParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractPTATParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractGainParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractTgcParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractResolutionParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractKsTaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractKsToParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractAlphaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractOffsetParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractKtaPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static int ExtractKvPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractCPParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static void ExtractCILCParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-static int ExtractDeviatingPixels(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractVDDParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractPTATParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractGainParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractTgcParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractResolutionParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractKsTaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractKsToParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static int ExtractKvPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractCPParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractCILCParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
 static int CheckAdjacentPixels(uint16_t pix1, uint16_t pix2);  
-static float GetMedian(float *values, int n);
-static int IsPixelBad(uint16_t pixel,paramsMLX90640 *params);
-static int ValidateFrameData(uint16_t frameData[MLX90640_FRAME_LENGTH]);
-static int ValidateAuxData(uint16_t *auxData);
+static float GetMedianInPlaceSort(float *values, int n);
+static int IsPixelBad(uint16_t pixel_idx,const paramsMLX90640 *params);
+static int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
+static int ValidateAuxData(const uint16_t *auxData);
   
-int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t *eeData)
+int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EEPROM_LENGTH])
 {
      return MLX90640_I2CRead(slaveAddr, 0x2400, MLX90640_EEPROM_LENGTH, eeData);
 }
@@ -205,7 +205,7 @@ int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_L
     return frameData[MLX90640_FRAME_SUBPAGE];    
 }
 
-int ValidateFrameData(uint16_t frameData[MLX90640_FRAME_LENGTH])
+int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH])
 {
     for(int line=0; line<MLX90640_PIXEL_ROWS; line++)
     {
@@ -216,7 +216,7 @@ int ValidateFrameData(uint16_t frameData[MLX90640_FRAME_LENGTH])
     return 0;    
 }
 
-int ValidateAuxData(uint16_t *auxData)
+int ValidateAuxData(const uint16_t *auxData)
 {
     
     if(auxData[0] == 0x7FFF) return -8;    
@@ -255,7 +255,7 @@ int ValidateAuxData(uint16_t *auxData)
     
 }
     
-int MLX90640_ExtractParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+int MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int error = 0;
     
@@ -413,7 +413,7 @@ int MLX90640_GetCurMode(uint8_t slaveAddr)
 
 //------------------------------------------------------------------------------
 
-void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float *result)
+void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float result[MLX90640_PIXEL_TOTAL])
 {
     float vdd;
     float ta;
@@ -563,7 +563,7 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
 
 //------------------------------------------------------------------------------
 
-void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float *result)
+void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL])
 {
     float vdd;
     float ta;
@@ -726,7 +726,7 @@ int MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH])
 }    
 
 //------------------------------------------------------------------------------
-void MLX90640_BadPixelsCorrection(uint16_t *pixels, float *to, int mode, paramsMLX90640 *params)
+void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params)
 {   
     float ap[4];
     uint8_t pix;
@@ -785,7 +785,7 @@ void MLX90640_BadPixelsCorrection(uint16_t *pixels, float *to, int mode, paramsM
                 ap[1] = to[pixels[pix]-31];
                 ap[2] = to[pixels[pix]+31];
                 ap[3] = to[pixels[pix]+33];
-                to[pixels[pix]] = GetMedian(ap,4);
+                to[pixels[pix]] = GetMedianInPlaceSort(ap,4);
             }                   
         }
         else
@@ -829,7 +829,7 @@ void MLX90640_BadPixelsCorrection(uint16_t *pixels, float *to, int mode, paramsM
 
 //------------------------------------------------------------------------------
 
-static void ExtractVDDParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractVDDParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int16_t kVdd;
     int16_t vdd25;
@@ -851,7 +851,7 @@ static void ExtractVDDParameters(const uint16_t *eeData, paramsMLX90640 *mlx9064
 
 //------------------------------------------------------------------------------
 
-static void ExtractPTATParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractPTATParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     float KvPTAT;
     float KtPTAT;
@@ -884,14 +884,14 @@ static void ExtractPTATParameters(const uint16_t *eeData, paramsMLX90640 *mlx906
 
 //------------------------------------------------------------------------------
 
-static void ExtractGainParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractGainParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     mlx90640->gainEE = two_complement_15bit(eeData[48]);  
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractTgcParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractTgcParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     float tgc;
     tgc = eeData[60] & 0x00FF;
@@ -906,7 +906,7 @@ static void ExtractTgcParameters(const uint16_t *eeData, paramsMLX90640 *mlx9064
 
 //------------------------------------------------------------------------------
 
-static void ExtractResolutionParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractResolutionParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     uint8_t resolutionEE;
     resolutionEE = (eeData[56] & 0x3000) >> 12;    
@@ -916,7 +916,7 @@ static void ExtractResolutionParameters(const uint16_t *eeData, paramsMLX90640 *
 
 //------------------------------------------------------------------------------
 
-static void ExtractKsTaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractKsTaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     float KsTa;
     KsTa = (eeData[60] & 0xFF00) >> 8;
@@ -931,7 +931,7 @@ static void ExtractKsTaParameters(const uint16_t *eeData, paramsMLX90640 *mlx906
 
 //------------------------------------------------------------------------------
 
-static void ExtractKsToParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractKsToParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int32_t KsToScale;
     int8_t step;
@@ -969,7 +969,7 @@ static void ExtractKsToParameters(const uint16_t *eeData, paramsMLX90640 *mlx906
 
 //------------------------------------------------------------------------------
 
-static void ExtractAlphaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int accRow[24];
     int accColumn[32];
@@ -1070,7 +1070,7 @@ static void ExtractAlphaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90
 
 //------------------------------------------------------------------------------
 
-static void ExtractOffsetParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int occRow[24];
     int occColumn[32];
@@ -1138,7 +1138,7 @@ static void ExtractOffsetParameters(const uint16_t *eeData, paramsMLX90640 *mlx9
 
 //------------------------------------------------------------------------------
 
-static void ExtractKtaPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int p = 0;
     int8_t KtaRC[4];
@@ -1221,7 +1221,7 @@ static void ExtractKtaPixelParameters(const uint16_t *eeData, paramsMLX90640 *ml
 
 //------------------------------------------------------------------------------
 
-static int ExtractKvPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static int ExtractKvPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     int p = 0;
     int8_t KvT[4];
@@ -1316,7 +1316,7 @@ static int ExtractKvPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx9
 
 //------------------------------------------------------------------------------
 
-static void ExtractCPParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractCPParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     float alphaSP[2];
     int16_t offsetSP[2];
@@ -1379,7 +1379,7 @@ static void ExtractCPParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640
 
 //------------------------------------------------------------------------------
 
-static void ExtractCILCParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+static void ExtractCILCParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     float ilChessC[3];
     uint8_t calibrationModeEE;
@@ -1416,7 +1416,7 @@ static void ExtractCILCParameters(const uint16_t *eeData, paramsMLX90640 *mlx906
 
 //------------------------------------------------------------------------------
 
-int ExtractDeviatingPixels(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
 {
     uint16_t pixCnt = 0;
     uint16_t brokenPixCnt = 0;
@@ -1530,7 +1530,7 @@ int ExtractDeviatingPixels(const uint16_t *eeData, paramsMLX90640 *mlx90640)
  
 //------------------------------------------------------------------------------
  
-static float GetMedian(float *values, int n)
+static float GetMedianInPlaceSort(float *values, int n)
  {
     float temp;
     
@@ -1561,11 +1561,11 @@ static float GetMedian(float *values, int n)
 
 //------------------------------------------------------------------------------
 
-static int IsPixelBad(uint16_t pixel,paramsMLX90640 *params)
+static int IsPixelBad(uint16_t pixel_idx,const paramsMLX90640 *params)
 {
     for(int i=0; i<5; i++)
     {
-        if(pixel == params->outlierPixels[i] || pixel == params->brokenPixels[i])
+        if(pixel_idx == params->outlierPixels[i] || pixel_idx == params->brokenPixels[i])
         {
             return 1;
         }    

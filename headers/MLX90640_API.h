@@ -40,6 +40,11 @@ enum {
     MLX90640_FRAME_LENGTH = MLX90640_PIXEL_TOTAL + MLX90640_FRAME_AUX_DATA_LENGTH + MLX90640_FRAME_REGISTER_COPY_LENGTH
 };
 
+enum {
+    MLX90640_EEPROM_LENGTH = 832
+};
+
+
 
 
 #define SCALEALPHA 0.000001f
@@ -75,24 +80,33 @@ typedef struct
         uint16_t outlierPixels[5];  
     } paramsMLX90640;
     
-    int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t *eeData);
-    int MLX90640_SynchFrame(uint8_t slaveAddr);
-    int MLX90640_TriggerMeasurement(uint8_t slaveAddr);
-    int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
-    int MLX90640_ExtractParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+typedef int MLX90640_Result_t;
+enum {
+    MLX90640_Result_Ok = 0
+};
+
+typedef int MLX90640_SubPage_t;
+
+
+
+    MLX90640_Result_t MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EEPROM_LENGTH]);
+    MLX90640_Result_t MLX90640_SynchFrame(uint8_t slaveAddr);
+    MLX90640_Result_t MLX90640_TriggerMeasurement(uint8_t slaveAddr);
+    MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
+    MLX90640_Result_t MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
     float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
     float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
-    void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float *result);
-    void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float *result);
-    int MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
-    int MLX90640_GetCurResolution(uint8_t slaveAddr);
-    int MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   
-    int MLX90640_GetRefreshRate(uint8_t slaveAddr);  
-    int MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
-    int MLX90640_GetCurMode(uint8_t slaveAddr); 
-    int MLX90640_SetInterleavedMode(uint8_t slaveAddr);
-    int MLX90640_SetChessMode(uint8_t slaveAddr);
-    void MLX90640_BadPixelsCorrection(uint16_t *pixels, float *to, int mode, paramsMLX90640 *params);
+    void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL]);
+    void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float result[MLX90640_PIXEL_TOTAL]);
+    MLX90640_Result_t MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
+    MLX90640_Result_t MLX90640_GetCurResolution(uint8_t slaveAddr);
+    MLX90640_Result_t MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   
+    MLX90640_Result_t MLX90640_GetRefreshRate(uint8_t slaveAddr);  
+    MLX90640_Result_t MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
+    MLX90640_Result_t MLX90640_GetCurMode(uint8_t slaveAddr); 
+    MLX90640_Result_t MLX90640_SetInterleavedMode(uint8_t slaveAddr);
+    MLX90640_Result_t MLX90640_SetChessMode(uint8_t slaveAddr);
+    void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params);
     void MLX90640_TestCalculations();
 
 
