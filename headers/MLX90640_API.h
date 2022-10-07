@@ -17,6 +17,31 @@
 #ifndef _MLX90640_API_H_
 #define _MLX90640_API_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+#define MLX90640_PIXEL_IDX(c,r) ((c) + (r)*MLX90640_PIXEL_ROWS)
+
+enum {
+    MLX90640_PIXEL_ROWS = 32,
+    MLX90640_PIXEL_COLS = 24,
+    MLX90640_PIXEL_TOTAL = MLX90640_PIXEL_ROWS *  MLX90640_PIXEL_COLS
+};
+
+
+enum {
+    MLX90640_FRAME_PIXEL_START = 0,
+    MLX90640_FRAME_AUX_DATA_START = MLX90640_PIXEL_TOTAL,
+    MLX90640_FRAME_AUX_DATA_LENGTH = 64,
+    MLX90640_FRAME_AUX_DATA_END = MLX90640_FRAME_AUX_DATA_START+MLX90640_FRAME_AUX_DATA_LENGTH,
+    MLX90640_FRAME_REGISTER_COPY_LENGTH = 2,
+    MLX90640_FRAME_LENGTH = MLX90640_PIXEL_TOTAL + MLX90640_FRAME_AUX_DATA_LENGTH + MLX90640_FRAME_REGISTER_COPY_LENGTH
+};
+
+
+
 #define SCALEALPHA 0.000001f
     
 typedef struct
@@ -36,9 +61,9 @@ typedef struct
         float KsTa;
         float ksTo[5];
         int16_t ct[5];
-        uint16_t alpha[768];    
+        uint16_t alpha[MLX90640_PIXEL_TOTAL];    
         uint8_t alphaScale;
-        int16_t offset[768];    
+        int16_t offset[MLX90640_PIXEL_TOTAL];    
         int8_t kta[768];
         uint8_t ktaScale;    
         int8_t kv[768];
@@ -53,20 +78,26 @@ typedef struct
     int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t *eeData);
     int MLX90640_SynchFrame(uint8_t slaveAddr);
     int MLX90640_TriggerMeasurement(uint8_t slaveAddr);
-    int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameData);
+    int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
     int MLX90640_ExtractParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
-    float MLX90640_GetVdd(const uint16_t *frameData, const paramsMLX90640 *params);
-    float MLX90640_GetTa(const uint16_t *frameData, const paramsMLX90640 *params);
-    void MLX90640_GetImage(const uint16_t *frameData, const paramsMLX90640 *params, float *result);
-    void MLX90640_CalculateTo(const uint16_t *frameData, const paramsMLX90640 *params, float emissivity, float tr, float *result);
+    float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
+    float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
+    void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float *result);
+    void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float *result);
     int MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
     int MLX90640_GetCurResolution(uint8_t slaveAddr);
     int MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   
     int MLX90640_GetRefreshRate(uint8_t slaveAddr);  
-    int MLX90640_GetSubPageNumber(const uint16_t *frameData);
+    int MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
     int MLX90640_GetCurMode(uint8_t slaveAddr); 
     int MLX90640_SetInterleavedMode(uint8_t slaveAddr);
     int MLX90640_SetChessMode(uint8_t slaveAddr);
     void MLX90640_BadPixelsCorrection(uint16_t *pixels, float *to, int mode, paramsMLX90640 *params);
-    
+    void MLX90640_TestCalculations();
+
+
+#ifdef __cplusplus
+} //extern "C"
+#endif
+
 #endif
