@@ -675,11 +675,7 @@ float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const par
 
     int resolutionRAM;    
     
-    vdd = frameData[810];
-    if(vdd > 32767)
-    {
-        vdd = vdd - 65536;
-    }
+    vdd = two_complement_15bit(frameData[810]);
     resolutionRAM = (frameData[832] & 0x0C00) >> 10;
     resolutionCorrection = exp2f(params->resolutionEE) / exp2f(resolutionRAM);
     vdd = (resolutionCorrection * vdd - params->vdd25) / params->kVdd + 3.3f;
@@ -834,15 +830,10 @@ static void ExtractVDDParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], 
     int16_t kVdd;
     int16_t vdd25;
     
-    kVdd = eeData[51];
+    kVdd = two_complement_7bit_msb(eeData[51]);
     
-    kVdd = (eeData[51] & 0xFF00) >> 8;
-    if(kVdd > 127)
-    {
-        kVdd = kVdd - 256;
-    }
     kVdd = 32 * kVdd;
-    vdd25 = eeData[51] & 0x00FF;
+    vdd25 = two_complement_7bit_lsb(eeData[51]);
     vdd25 = ((vdd25 - 256) << 5) - 8192;
     
     mlx90640->kVdd = kVdd;
@@ -859,18 +850,18 @@ static void ExtractPTATParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH],
     float alphaPTAT;
     
     KvPTAT = (eeData[50] & 0xFC00) >> 10;
-    if(KvPTAT > 31)
+    if(KvPTAT > 31.0f)
     {
-        KvPTAT = KvPTAT - 64;
+        KvPTAT = KvPTAT - 64.0f;
     }
-    KvPTAT = KvPTAT/4096;
+    KvPTAT = KvPTAT/4096.0f;
     
     KtPTAT = eeData[50] & 0x03FF;
-    if(KtPTAT > 511)
+    if(KtPTAT > 511.0f)
     {
-        KtPTAT = KtPTAT - 1024;
+        KtPTAT = KtPTAT - 1024.0f;
     }
-    KtPTAT = KtPTAT/8;
+    KtPTAT = KtPTAT/8.0f;
     
     vPTAT25 = eeData[49];
     

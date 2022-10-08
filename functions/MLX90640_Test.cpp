@@ -5,36 +5,28 @@
 #include "../headers/MLX90640_API.h"
 
 
-enum DATA_ENUM {
-    DATA_EEPROM,
-    DATA_FRAME0,
-    DATA_FRAME1,
-    DATA_FLOAT_COMPARE
-} ;
 
 
-static const uint16_t* get_data(DATA_ENUM data);
-
-void MLX90640_TestCalculations()
+MLX90640_Result_t MLX90640_TestCalculations()
 {
     paramsMLX90640 paramsMLX90640Data;
 
-    int res = MLX90640_ExtractParameters(get_data(DATA_EEPROM), &paramsMLX90640Data);
+    int res = MLX90640_ExtractParameters(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_EEPROM), &paramsMLX90640Data);
     printf("MLX90640_ExtractParameters returned %d\n", res);
 
     float emissivity = 1.0;
-    float Ta = MLX90640_GetTa(get_data(DATA_FRAME0), &paramsMLX90640Data);
+    float Ta = MLX90640_GetTa(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME0), &paramsMLX90640Data);
     float Tr = Ta - 8.0f;
 
     printf("MLX90640_GetFrameData returned %d Ta=%.1fC\n", res, (double)Ta);
 
     float Tobject[32 * 24];
 
-    MLX90640_CalculateTo(get_data(DATA_FRAME0), &paramsMLX90640Data, emissivity, Tr, Tobject);
+    MLX90640_CalculateTo(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME0), &paramsMLX90640Data, emissivity, Tr, Tobject);
 
-    Ta = MLX90640_GetTa(get_data(DATA_FRAME1), &paramsMLX90640Data);
+    Ta = MLX90640_GetTa(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME1), &paramsMLX90640Data);
     Tr = Ta - 8.0f;
-    MLX90640_CalculateTo(get_data(DATA_FRAME1), &paramsMLX90640Data, emissivity, Tr, Tobject);
+    MLX90640_CalculateTo(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME1), &paramsMLX90640Data, emissivity, Tr, Tobject);
 
     for (int r = 0; r < 24; r++)
     {
@@ -43,18 +35,19 @@ void MLX90640_TestCalculations()
             int pixnum = r * 32 + c;
 
             float To_calc = Tobject[pixnum];
-            float To_expected = ((const float*)get_data(DATA_FLOAT_COMPARE))[pixnum];
+            float To_expected = ((const float*)MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FLOAT_COMPARE))[pixnum];
 
             if (fabsf(To_calc - To_expected) > 0.05f)
             {
                 printf("TEST FAILED: Calc failed pixnum:%d %2.1f !\n", pixnum, (double)To_calc);
-                exit(-1);
+                return -1;
             }
 
             //printf("%2.1f ", (double)To_calc);
         }
         printf("\n");
     }
+    return 0;
 }
 
 
@@ -176,12 +169,12 @@ static const float to_calc_frame1[32 * 24] = {
 };
 
 
-static const uint16_t* get_data(DATA_ENUM data_enum) {
-    switch (data_enum) {
-        case DATA_EEPROM: return eeprom_data;
-        case DATA_FRAME0: return ram_data_frame0;
-        case DATA_FRAME1: return ram_data_frame1;
-        case DATA_FLOAT_COMPARE: return (const uint16_t*)to_calc_frame1;
+const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which) {
+    switch (which) {
+        case MLX90640_TEST_DATA_EEPROM: return eeprom_data;
+        case MLX90640_TEST_DATA_FRAME0: return ram_data_frame0;
+        case MLX90640_TEST_DATA_FRAME1: return ram_data_frame1;
+        case MLX90640_TEST_DATA_FLOAT_COMPARE: return (const uint16_t*)to_calc_frame1;
     }
     return nullptr;
 }

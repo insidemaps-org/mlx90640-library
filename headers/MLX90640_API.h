@@ -22,6 +22,10 @@ extern "C" {
 #endif
 
 
+enum {
+    MLX90640_I2C_ADDR_DEFAULT = 0x33
+};
+
 #define MLX90640_PIXEL_IDX(c,r) ((c) + (r)*MLX90640_PIXEL_ROWS)
 
 enum {
@@ -80,34 +84,58 @@ typedef struct
         uint16_t outlierPixels[5];  
     } paramsMLX90640;
     
+
+///<0 indicates error
+///0 indicates success
 typedef int MLX90640_Result_t;
 enum {
     MLX90640_Result_Ok = 0
 };
 
-typedef int MLX90640_SubPage_t;
+///Either error or positive number indicating subpage
+typedef MLX90640_Result_t MLX90640_SubPage_t;
+
+//Communication with MLX90640 device
+///////////////////////////////////////////////////////
+
+MLX90640_Result_t MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EEPROM_LENGTH]);
+MLX90640_Result_t MLX90640_SynchFrame(uint8_t slaveAddr);
+MLX90640_Result_t MLX90640_TriggerMeasurement(uint8_t slaveAddr);
+MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
+MLX90640_Result_t MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
+MLX90640_Result_t MLX90640_GetCurResolution(uint8_t slaveAddr);
+MLX90640_Result_t MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   
+MLX90640_Result_t MLX90640_GetRefreshRate(uint8_t slaveAddr);  
+MLX90640_Result_t MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
+MLX90640_Result_t MLX90640_GetCurMode(uint8_t slaveAddr); 
+MLX90640_Result_t MLX90640_SetInterleavedMode(uint8_t slaveAddr);
+MLX90640_Result_t MLX90640_SetChessMode(uint8_t slaveAddr);
+
+
+//Calculation of values
+///////////////////////////////////////////////////////
+MLX90640_Result_t MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
+float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
+void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL]);
+void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float result[MLX90640_PIXEL_TOTAL]);
+void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params);
 
 
 
-    MLX90640_Result_t MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EEPROM_LENGTH]);
-    MLX90640_Result_t MLX90640_SynchFrame(uint8_t slaveAddr);
-    MLX90640_Result_t MLX90640_TriggerMeasurement(uint8_t slaveAddr);
-    MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
-    MLX90640_Result_t MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-    float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
-    float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
-    void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL]);
-    void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float result[MLX90640_PIXEL_TOTAL]);
-    MLX90640_Result_t MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
-    MLX90640_Result_t MLX90640_GetCurResolution(uint8_t slaveAddr);
-    MLX90640_Result_t MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   
-    MLX90640_Result_t MLX90640_GetRefreshRate(uint8_t slaveAddr);  
-    MLX90640_Result_t MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
-    MLX90640_Result_t MLX90640_GetCurMode(uint8_t slaveAddr); 
-    MLX90640_Result_t MLX90640_SetInterleavedMode(uint8_t slaveAddr);
-    MLX90640_Result_t MLX90640_SetChessMode(uint8_t slaveAddr);
-    void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params);
-    void MLX90640_TestCalculations();
+///Pass known eeprom and frame data and compare to hardcoded expected result
+MLX90640_Result_t MLX90640_TestCalculations();
+
+
+enum MLX90640_TEST_DATA {
+    MLX90640_TEST_DATA_EEPROM,
+    MLX90640_TEST_DATA_FRAME0,
+    MLX90640_TEST_DATA_FRAME1,
+    MLX90640_TEST_DATA_FLOAT_COMPARE
+} ;
+
+const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which);
+
 
 
 #ifdef __cplusplus
