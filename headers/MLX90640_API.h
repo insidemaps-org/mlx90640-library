@@ -124,15 +124,20 @@ void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float t
 
 
 ///Pass known eeprom and frame data and compare to hardcoded expected result
-MLX90640_Result_t MLX90640_TestCalculations();
+MLX90640_Result_t MLX90640_TestCalculations(int testCase);
 
 
 enum MLX90640_TEST_DATA {
     MLX90640_TEST_DATA_EEPROM,
     MLX90640_TEST_DATA_FRAME0,
     MLX90640_TEST_DATA_FRAME1,
-    MLX90640_TEST_DATA_FLOAT_COMPARE
+    MLX90640_TEST_DATA_FLOAT_COMPARE,
+    MLX90640_TEST_DATA_ALT_EEPROM,
+    MLX90640_TEST_DATA_ALT_FRAME0,
+    MLX90640_TEST_DATA_ALT_FRAME1,
 } ;
+
+
 
 const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which);
 

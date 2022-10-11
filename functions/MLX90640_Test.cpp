@@ -22,8 +22,11 @@ void MLX90640_TestWriteToFile(FILE* fileout, const char* prefix,int data_len, co
 }
 
 
-MLX90640_Result_t MLX90640_TestCalculations()
+static MLX90640_Result_t MLX90640_TestCalculations1()
 {
+
+
+
     paramsMLX90640 paramsMLX90640Data;
 
     int res = MLX90640_ExtractParameters(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_EEPROM), &paramsMLX90640Data);
@@ -65,7 +68,55 @@ MLX90640_Result_t MLX90640_TestCalculations()
     return 0;
 }
 
+static MLX90640_Result_t MLX90640_TestCalculations2()
+{
 
+
+
+    paramsMLX90640 paramsMLX90640Data;
+
+    int res = MLX90640_ExtractParameters(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_EEPROM), &paramsMLX90640Data);
+    printf("MLX90640_ExtractParameters returned %d\n", res);
+
+    float emissivity = 1.0;
+    float Ta = MLX90640_GetTa(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_FRAME0), &paramsMLX90640Data);
+    float Tr = Ta - 8.0f;
+
+    printf("MLX90640_GetFrameData returned %d Ta=%.1fC\n", res, (double)Ta);
+
+    float Tobject[32 * 24];
+
+    MLX90640_CalculateTo(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_FRAME0), &paramsMLX90640Data, emissivity, Tr, Tobject);
+
+    Ta = MLX90640_GetTa(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_FRAME1), &paramsMLX90640Data);
+    Tr = Ta - 8.0f;
+    MLX90640_CalculateTo(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_FRAME1), &paramsMLX90640Data, emissivity, Tr, Tobject);
+
+    for (int r = 0; r < 24; r++)
+    {
+        for (int c = 0; c < 32; c++)
+        {
+            int pixnum = r * 32 + c;
+
+            float To_calc = Tobject[pixnum];
+            float To_expected = ((const float*)MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FLOAT_COMPARE))[pixnum];
+
+
+            printf("%2.1f ", (double)To_calc);
+        }
+        printf("\n");
+    }
+    return 0;
+}
+
+MLX90640_Result_t MLX90640_TestCalculations(int testCase)
+{
+    if (testCase == 1) {
+        return MLX90640_TestCalculations1();
+    } else {
+        return MLX90640_TestCalculations2();
+    }
+}
 
 
 static const uint16_t eeprom_data[832] =
@@ -355,10 +406,10 @@ const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which) {
         case MLX90640_TEST_DATA_FRAME0: return ram_data_frame0;
         case MLX90640_TEST_DATA_FRAME1: return ram_data_frame1;
         case MLX90640_TEST_DATA_FLOAT_COMPARE: return (const uint16_t*)to_calc_frame1;
+        case MLX90640_TEST_DATA_ALT_EEPROM: return eeprom_data_alt;
+        case MLX90640_TEST_DATA_ALT_FRAME0: return frame0_data_alt;
+        case MLX90640_TEST_DATA_ALT_FRAME1: return frame1_data_alt;
     }
     return nullptr;
 }
-
-
-
 
