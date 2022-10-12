@@ -41,7 +41,8 @@ enum {
     MLX90640_FRAME_AUX_DATA_LENGTH = 64,
     MLX90640_FRAME_AUX_DATA_END = MLX90640_FRAME_AUX_DATA_START+MLX90640_FRAME_AUX_DATA_LENGTH,
     MLX90640_FRAME_REGISTER_COPY_LENGTH = 2,
-    MLX90640_FRAME_LENGTH = MLX90640_PIXEL_TOTAL + MLX90640_FRAME_AUX_DATA_LENGTH + MLX90640_FRAME_REGISTER_COPY_LENGTH
+    MLX90640_FRAME_LENGTH = MLX90640_PIXEL_TOTAL + MLX90640_FRAME_AUX_DATA_LENGTH + MLX90640_FRAME_REGISTER_COPY_LENGTH,
+    MLX90640_FRAME_SUBPAGE_REGISTER = 833
 };
 
 enum {
@@ -102,6 +103,7 @@ MLX90640_Result_t MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EE
 MLX90640_Result_t MLX90640_SynchFrame(uint8_t slaveAddr);
 MLX90640_Result_t MLX90640_TriggerMeasurement(uint8_t slaveAddr);
 MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
+MLX90640_Result_t MLX90640_VerifyFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
 MLX90640_Result_t MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
 MLX90640_Result_t MLX90640_GetCurResolution(uint8_t slaveAddr);
 MLX90640_Result_t MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   
@@ -124,6 +126,7 @@ void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float t
 
 
 ///Pass known eeprom and frame data and compare to hardcoded expected result
+//////////////////////////////////////////////////////////////////////////////////
 MLX90640_Result_t MLX90640_TestCalculations(int testCase);
 
 
@@ -136,9 +139,6 @@ enum MLX90640_TEST_DATA {
     MLX90640_TEST_DATA_ALT_FRAME0,
     MLX90640_TEST_DATA_ALT_FRAME1,
 } ;
-
-
-
 const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which);
 
 

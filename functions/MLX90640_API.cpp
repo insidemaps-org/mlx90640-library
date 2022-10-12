@@ -140,15 +140,28 @@ int MLX90640_TriggerMeasurement(uint8_t slaveAddr)
     
     return 0;    
 }
+
+
+MLX90640_Result_t MLX90640_VerifyFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]) {
+    MLX90640_Result_t error = 0;
+    error = ValidateAuxData(&frameData[MLX90640_PIXEL_TOTAL]);
+    if(error != 0)
+    {
+        return error;
+    }     
+
+    error = ValidateFrameData(frameData);
+    return error;
+
+}
+
     
-int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH])
+MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH])
 {
-    uint16_t dataReady = 0;
+    uint16_t dataReady = 1;
     uint16_t controlRegister1;
-    uint16_t statusRegister;
+    uint16_t statusRegister = 0;
     int error = 1;
-    uint16_t data[64];
-    uint8_t cnt = 0;
     
     while(dataReady == 0)
     {
@@ -159,12 +172,12 @@ int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_L
         }    
         dataReady = statusRegister & MLX90640_STATUS_NEW_DATA_IN_RAM_FLAG;
     }      
-    
+    /*
     error = MLX90640_I2CWrite(slaveAddr, MLX90640_STATUS_REGISTER, 0x0030);
     if(error == -1)
     {
         return error;
-    }
+    }*/
                      
     error = MLX90640_I2CRead(slaveAddr, MLX90640_RAM_PIXELS_START, MLX90640_PIXEL_TOTAL, frameData); 
     if(error != 0)
@@ -172,7 +185,7 @@ int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_L
         return error;
     }                       
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_RAM_AUX_DATA_START, MLX90640_RAM_AUX_DATA_LENGTH, data); 
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_RAM_AUX_DATA_START, MLX90640_RAM_AUX_DATA_LENGTH, &frameData[MLX90640_PIXEL_TOTAL]); 
     if(error != 0)
     {
         return error;
@@ -187,21 +200,11 @@ int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_L
         return error;
     }
     
-    error = ValidateAuxData(data);
-    if(error == 0)
-    {
-        for(cnt=0; cnt<MLX90640_RAM_AUX_DATA_LENGTH; cnt++)
-        {
-            frameData[cnt+MLX90640_PIXEL_TOTAL] = data[cnt];
-        }
-    }        
-    
-    error = ValidateFrameData(frameData);
-    if (error != 0)
+    error = MLX90640_VerifyFrameData(&frameData[MLX90640_PIXEL_TOTAL]);
+    if(error != 0)
     {
         return error;
     }
-    
     return frameData[MLX90640_FRAME_SUBPAGE];    
 }
 
