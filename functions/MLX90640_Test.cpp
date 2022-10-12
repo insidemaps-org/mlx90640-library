@@ -101,6 +101,9 @@ static MLX90640_Result_t MLX90640_TestCalculations2()
             float To_calc = Tobject[pixnum];
             float To_expected = ((const float*)MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FLOAT_COMPARE))[pixnum];
 
+            if (fabsf(To_expected - To_calc) > 0.01f) {
+
+            }
 
            // printf("%2.1f ", (double)To_calc);
         }
