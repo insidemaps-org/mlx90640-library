@@ -26,11 +26,11 @@ enum {
     MLX90640_I2C_ADDR_DEFAULT = 0x33
 };
 
-#define MLX90640_PIXEL_IDX(c,r) ((c) + (r)*MLX90640_PIXEL_ROWS)
+#define MLX90640_PIXEL_IDX(c,r) ((c) + (r)*MLX90640_PIXEL_COLS)
 
 enum {
-    MLX90640_PIXEL_ROWS = 32,
-    MLX90640_PIXEL_COLS = 24,
+    MLX90640_PIXEL_ROWS = 24,
+    MLX90640_PIXEL_COLS = 32,
     MLX90640_PIXEL_TOTAL = MLX90640_PIXEL_ROWS *  MLX90640_PIXEL_COLS
 };
 
@@ -120,7 +120,7 @@ MLX90640_Result_t MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPR
 float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
 float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
 void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL]);
-void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float result[MLX90640_PIXEL_TOTAL]);
+void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float Treflected, float result[MLX90640_PIXEL_TOTAL]);
 void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params);
 enum {
     MLX90640_Zone_1 = 0,

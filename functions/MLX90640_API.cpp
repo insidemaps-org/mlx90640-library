@@ -1045,7 +1045,7 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
     }
     
     alphaScale = 0;
-    while(temp < 32767.4f)
+    while(temp > 0.0f && temp < 32767.4f)
     {
         temp = temp*2.0f;
         alphaScale = alphaScale + 1;

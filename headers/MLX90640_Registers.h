@@ -17,6 +17,9 @@
 #ifndef _MLX90640_REGISTERS_H_
 #define _MLX90640_REGISTERS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 //Status register bits
@@ -57,5 +60,9 @@ enum {
 
 };
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //_MLX90640_REGISTERS_H_
