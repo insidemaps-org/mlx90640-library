@@ -951,14 +951,14 @@ static void ExtractKsToParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH],
     
     for(int i = 0; i < 4; i++)
     {
-        if(mlx90640->ksTo[i] > 127)
+        if(mlx90640->ksTo[i] > 127.0f)
         {
-            mlx90640->ksTo[i] = mlx90640->ksTo[i] - 256;
+            mlx90640->ksTo[i] = mlx90640->ksTo[i] - 256.0f;
         }
         mlx90640->ksTo[i] = mlx90640->ksTo[i] / KsToScale;
     } 
     
-    mlx90640->ksTo[4] = -0.0002;
+    mlx90640->ksTo[4] = -0.0002f;
 }
 
 //------------------------------------------------------------------------------
