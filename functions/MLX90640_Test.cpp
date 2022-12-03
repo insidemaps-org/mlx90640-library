@@ -30,13 +30,15 @@ static MLX90640_Result_t MLX90640_TestCalculations1()
     paramsMLX90640 paramsMLX90640Data;
 
     int res = MLX90640_ExtractParameters(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_EEPROM), &paramsMLX90640Data);
-    printf("MLX90640_ExtractParameters returned %d\n", res);
+    printf("Test:MLX90640_ExtractParameters returned %d\n", res);
+
+    float Vdd = MLX90640_GetVdd(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME0),&paramsMLX90640Data);
 
     float emissivity = 1.0;
     float Ta = MLX90640_GetTa(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME0), &paramsMLX90640Data);
     float Tr = Ta - 8.0f;
 
-    printf("MLX90640_GetFrameData returned %d Ta=%.1fC\n", res, (double)Ta);
+    printf("Test:MLX90640_GetFrameData returned %d Vdd=%.1f Ta=%.1fC\n", res, (double)Vdd, (double)Ta);
 
     float Tobject[32 * 24];
 
@@ -76,13 +78,16 @@ static MLX90640_Result_t MLX90640_TestCalculations2()
     paramsMLX90640 paramsMLX90640Data;
 
     int res = MLX90640_ExtractParameters(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_EEPROM), &paramsMLX90640Data);
-    printf("MLX90640_ExtractParameters returned %d\n", res);
+    printf("Test: MLX90640_ExtractParameters returned %d\n", res);
 
     float emissivity = 1.0;
     float Ta = MLX90640_GetTa(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_ALT_FRAME0), &paramsMLX90640Data);
     float Tr = Ta - 8.0f;
 
-    printf("MLX90640_GetFrameData returned %d Ta=%.1fC\n", res, (double)Ta);
+    float Vdd = MLX90640_GetVdd(MLX90640_Test_GetTestData(MLX90640_TEST_DATA_FRAME0),&paramsMLX90640Data);
+
+
+    printf("Test: MLX90640_GetFrameData returned %d Vdd=%.1f Ta=%.1fC\n", res, (double)Vdd, (double)Ta);
 
     float Tobject[32 * 24];
 
