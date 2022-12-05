@@ -45,6 +45,8 @@ typedef uint8_t MLX90640_BLEProxy_MemBlock_t;
 
 MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t which, int offset,int len, const uint8_t* data);
 
+int MLX90640_BLEProxy_HaveControlRegisterUpdate(uint16_t* value);
+
 const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr();
 const uint16_t* MLX90640_BLEProxy_GetRAMPtr();
 
