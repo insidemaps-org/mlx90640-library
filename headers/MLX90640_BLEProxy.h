@@ -40,6 +40,10 @@ enum {
     MLX90640_BLEProxy_MemBlock_ControlRegister = 4,
 };
 
+enum {
+     MLX90640_FRAME_MAGIC_NUMBER_INDEX = 834
+};
+
 typedef uint8_t MLX90640_BLEProxy_MemBlock_t;
 
 

@@ -38,7 +38,7 @@ enum MLX90640_AddressMap
 };
 
 enum {
-    MLX90640_BLEPROXY_FRAME_LENGTH = MLX90640_FRAME_LENGTH + 2,
+    MLX90640_BLEPROXY_FRAME_LENGTH = MLX90640_FRAME_LENGTH + 3,
     HERO_MemBank_MagicNumber_Synthetic = 0x1234,
     HERO_MemBank_MagicNumber_Eeprom = 0xBABE,
     HERO_MemBank_MagicNumber_RAM = 0xC0DE
@@ -59,7 +59,7 @@ static uint16_t control_register_requested_data = 0xFFFF;
 
 
 const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr() {
-    if (eeprom_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_RAM) {
+    if (eeprom_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_Eeprom) {
         printf("MLX90640_BLEProxyResult_GetEEPROMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04x\n",eeprom_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_RAM);
         return nullptr;
     }
@@ -92,16 +92,20 @@ const uint16_t* MLX90640_BLEProxy_GetRAMPtr() {
 MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t which, int offset,int len, const uint8_t* data) {
     uint16_t* ptr = nullptr;
 
-    uint16_t* ptr_end = nullptr;
+    const uint16_t* ptr_end = nullptr;
 
-	uint16_t* ptr_ctrl = nullptr;
-	uint16_t* ptr_status = nullptr;
+	const uint16_t* ptr_ctrl = nullptr;
+	const uint16_t* ptr_status = nullptr;
+	const uint16_t* ptr_magic_number = nullptr;
+	uint16_t expected_magic_number = 0;
 
 
 	if (which == MLX90640_BLEProxy_MemBlock_EEPROM)
 	{
 		ptr = &eeprom_data[0];
         ptr_end = &eeprom_data[length_of(eeprom_data)];
+		ptr_magic_number = ptr_end + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
+		expected_magic_number = HERO_MemBank_MagicNumber_Eeprom;
 
 	}
 	else if (which == MLX90640_BLEProxy_MemBlock_RAM)
@@ -111,7 +115,8 @@ MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t
 
 		ptr_ctrl = ptr + MLX90640_FRAME_CONTROL_REGISTER;
 		ptr_status = ptr + MLX90640_FRAME_STATUS_REGISTER;
-
+		ptr_magic_number = ptr_end + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
+		expected_magic_number = HERO_MemBank_MagicNumber_RAM;
     }
 	else if (which == MLX90640_BLEProxy_MemBlock_ControlRegister || which == MLX90640_BLEProxy_MemBlock_StatusRegister )
     {
@@ -139,6 +144,12 @@ MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t
 		}
 		if (ptr == ptr_status) {
 			status_register_data = *ptr;
+		}
+		if (ptr == ptr_magic_number) {
+			if (*ptr != expected_magic_number) {
+				printf("MLX90640_BLEProxy: Invalid magic number 0x%04X expected 0x%04X\n",*ptr ,expected_magic_number);
+        		return MLX90640_BLEProxyResult_InvalidParam;
+			}
 		}
         ptr++;
     }
