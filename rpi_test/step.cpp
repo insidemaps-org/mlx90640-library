@@ -21,20 +21,18 @@
 #define MLX_I2C_ADDR 0x33
 
 int main(){
-    int state = 0;
     printf("Starting...\n");
     static uint16_t eeMLX90640[832];
     float emissivity = 1;
     uint16_t frame[834];
-    static float image[768];
     float eTa;
-    static uint16_t data[768*sizeof(float)];
+    float Vdd;
 
     std::fstream fs;
 
     //MLX90640_SetDeviceMode(MLX_I2C_ADDR, 1);
     //MLX90640_SetSubPageRepeat(MLX_I2C_ADDR, 1);
-    MLX90640_SetRefreshRate(MLX_I2C_ADDR, 0b101);
+    MLX90640_SetRefreshRate(MLX_I2C_ADDR, 0b010);
     MLX90640_SetChessMode(MLX_I2C_ADDR);
     printf("Configured...\n");
 
@@ -42,9 +40,9 @@ int main(){
     MLX90640_DumpEE(MLX_I2C_ADDR, eeMLX90640);
     MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
     int refresh = MLX90640_GetRefreshRate(MLX_I2C_ADDR);
-    printf("EE Dumped...\n");
+    printf("EE Dumped... refresh:%d\n",refresh);
 
-    int frames = 30;
+    //int frames = 30;
     int subpage;
     static float mlx90640To[768];
 
@@ -59,38 +57,40 @@ int main(){
         // Start the next meausrement
         MLX90640_TriggerMeasurement(MLX_I2C_ADDR);
         eTa = MLX90640_GetTa(frame, &mlx90640);
+        Vdd = MLX90640_GetVdd(frame, &mlx90640);
+
         MLX90640_CalculateTo(frame, &mlx90640, emissivity, eTa, mlx90640To);
 
         MLX90640_BadPixelsCorrection((&mlx90640)->brokenPixels, mlx90640To, 1, &mlx90640);
         MLX90640_BadPixelsCorrection((&mlx90640)->outlierPixels, mlx90640To, 1, &mlx90640);
 
-        printf("Subpage: %d\n", subpage);
+        printf("Page:%d Ta:%4.1fC Vdd:%4.1fV\n", subpage,(double)eTa,(double)Vdd);
 
         for(int x = 0; x < 32; x++){
             for(int y = 0; y < 24; y++){
                 //std::cout << image[32 * y + x] << ",";
                 float val = mlx90640To[32 * (23-y) + x];
                 //if(val > 99.99) val = 99.99;
-                if(val > 32.0){
-                    printf(ANSI_COLOR_MAGENTA FMT_STRING ANSI_COLOR_RESET, val);
+                if(val > 32.0f){
+                    printf(ANSI_COLOR_MAGENTA FMT_STRING ANSI_COLOR_RESET, (double)val);
                 }
-                else if(val > 29.0){
-                    printf(ANSI_COLOR_RED FMT_STRING ANSI_COLOR_RESET, val);
+                else if(val > 29.0f){
+                    printf(ANSI_COLOR_RED FMT_STRING ANSI_COLOR_RESET, (double)val);
                 }
-                else if (val > 26.0){
-                    printf(ANSI_COLOR_YELLOW FMT_STRING ANSI_COLOR_YELLOW, val);
+                else if (val > 26.0f){
+                    printf(ANSI_COLOR_YELLOW FMT_STRING ANSI_COLOR_YELLOW, (double)val);
                 }
-                else if ( val > 20.0 ){
-                    printf(ANSI_COLOR_NONE FMT_STRING ANSI_COLOR_RESET, val);
+                else if ( val > 20.0f ){
+                    printf(ANSI_COLOR_GREEN FMT_STRING ANSI_COLOR_RESET, (double)val);
                 }
-                else if (val > 17.0) {
-                    printf(ANSI_COLOR_GREEN FMT_STRING ANSI_COLOR_RESET, val);
+                else if (val > 17.0f) {
+                    printf(ANSI_COLOR_CYAN FMT_STRING ANSI_COLOR_RESET, (double)val);
                 }
-                else if (val > 10.0) {
-                    printf(ANSI_COLOR_CYAN FMT_STRING ANSI_COLOR_RESET, val);
+                else if (val > 10.0f) {
+                    printf(ANSI_COLOR_BLUE FMT_STRING ANSI_COLOR_RESET, (double)val);
                 }
                 else {
-                    printf(ANSI_COLOR_BLUE FMT_STRING ANSI_COLOR_RESET, val);
+                    printf(ANSI_COLOR_NONE FMT_STRING ANSI_COLOR_RESET, (double)val);
                 }
             }
             std::cout << std::endl;

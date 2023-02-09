@@ -51,7 +51,6 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
         i2c_fd = open(i2c_device, O_RDWR);
     }
 
-    int result;
     char cmd[2] = {(char)(startAddress >> 8), (char)(startAddress & 0xFF)};
     char buf[1664];
     uint16_t *p = data;
@@ -90,12 +89,12 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
 
 void MLX90640_I2CFreqSet(int freq)
 {
+    (void)freq;
 }
 
 int MLX90640_I2CWrite(uint8_t slaveAddr, uint16_t writeAddress, uint16_t data)
 { 
     char cmd[4] = {(char)(writeAddress >> 8), (char)(writeAddress & 0x00FF), (char)(data >> 8), (char)(data & 0x00FF)};
-    int result;
 
     struct i2c_msg i2c_messages[1];
     struct i2c_rdwr_ioctl_data i2c_messageset[1];

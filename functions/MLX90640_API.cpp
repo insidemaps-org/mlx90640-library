@@ -19,59 +19,29 @@
 #include <MLX90640_Registers.h>
 #include <math.h>
 
-
-
-static inline int16_t two_complement_15bit(uint16_t val_u16) {
-    union {
-        uint16_t val_u;
-        int16_t val_s;
-    } temp;
-    temp.val_u = val_u16;
-    return temp.val_s;
-}
-
-static inline int8_t two_complement_7bit(uint16_t val_u8) {
-    union {
-        uint8_t val_u;
-        int8_t val_s;
-    } temp;
-    temp.val_u = val_u8;
-    return temp.val_s;
-}
-
-static inline int8_t two_complement_7bit_msb(uint16_t val_u16) {
-    return two_complement_7bit(val_u16 >> 8u);
-}
-
-static inline int8_t two_complement_7bit_lsb(uint16_t val_u16) {
-    return two_complement_7bit(val_u16 & 0x00FFu);
-}
-
-
-
-static void ExtractVDDParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractPTATParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractGainParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractTgcParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractResolutionParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractKsTaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractKsToParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static int ExtractKvPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractCPParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static void ExtractCILCParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
-static int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640);
+static void ExtractVDDParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractPTATParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractGainParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractTgcParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractResolutionParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractKsTaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractKsToParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractAlphaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractOffsetParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractKtaPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractKvPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractCPParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static void ExtractCILCParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
+static int ExtractDeviatingPixels(const uint16_t *eeData, paramsMLX90640 *mlx90640);
 static int CheckAdjacentPixels(uint16_t pix1, uint16_t pix2);  
-static float GetMedianInPlaceSort(float *values, int n);
-static int IsPixelBad(uint16_t pixel_idx,const paramsMLX90640 *params);
-static int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
+static float GetMedian(float *values, int n);
+static int IsPixelBad(uint16_t pixel,const paramsMLX90640 *params);
+static int ValidateFrameData(const uint16_t *frameData);
 static int ValidateAuxData(const uint16_t *auxData);
   
-int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EEPROM_LENGTH])
+int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t *eeData)
 {
-     return MLX90640_I2CRead(slaveAddr, 0x2400, MLX90640_EEPROM_LENGTH, eeData);
+     return MLX90640_I2CRead(slaveAddr, MLX90640_EEPROM_START_ADDRESS, MLX90640_EEPROM_DUMP_NUM, eeData);
 }
 
 int MLX90640_SynchFrame(uint8_t slaveAddr)
@@ -80,23 +50,24 @@ int MLX90640_SynchFrame(uint8_t slaveAddr)
     uint16_t statusRegister;
     int error = 1;
     
-    error = MLX90640_I2CWrite(slaveAddr, MLX90640_STATUS_REGISTER, 0x0030);
-    if(error == -1)
+    error = MLX90640_I2CWrite(slaveAddr, MLX90640_STATUS_REG, MLX90640_INIT_STATUS_VALUE);
+    if(error == -MLX90640_I2C_NACK_ERROR)
     {
         return error;
     }
     
     while(dataReady == 0)
     {
-        error = MLX90640_I2CRead(slaveAddr, MLX90640_STATUS_REGISTER, 1, &statusRegister);
-        if(error != 0)
+        error = MLX90640_I2CRead(slaveAddr, MLX90640_STATUS_REG, 1, &statusRegister);
+        if(error != MLX90640_NO_ERROR)
         {
             return error;
         }    
-        dataReady = statusRegister & MLX90640_STATUS_NEW_DATA_IN_RAM_FLAG;
-    }      
+        //dataReady = statusRegister & 0x0008;
+        dataReady = MLX90640_GET_DATA_READY(statusRegister); 
+    }     
     
-   return 0;   
+   return MLX90640_NO_ERROR;   
 }
 
 int MLX90640_TriggerMeasurement(uint8_t slaveAddr)
@@ -104,170 +75,162 @@ int MLX90640_TriggerMeasurement(uint8_t slaveAddr)
     int error = 1;
     uint16_t ctrlReg;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &ctrlReg);
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &ctrlReg);
     
-    if ( error != 0) 
+    if ( error != MLX90640_NO_ERROR) 
     {
         return error;
     }    
                                                 
-    ctrlReg |= 0x8000;
-    error = MLX90640_I2CWrite(slaveAddr, MLX90640_CONTROL_REGISTER, ctrlReg);
+    ctrlReg |= MLX90640_CTRL_TRIG_READY_MASK;
+    error = MLX90640_I2CWrite(slaveAddr, MLX90640_CTRL_REG, ctrlReg);
     
-    if ( error != 0)
+    if ( error != MLX90640_NO_ERROR)
     {
         return error;
     }    
     
     error = MLX90640_I2CGeneralReset();
     
-    if ( error != 0)
+    if ( error != MLX90640_NO_ERROR)
     {
         return error;
     }    
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &ctrlReg);
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &ctrlReg);
     
-    if ( error != 0)
+    if ( error != MLX90640_NO_ERROR)
     {
         return error;
     }    
     
-    if ((ctrlReg & 0x8000) != 0)
+    if ((ctrlReg & MLX90640_CTRL_TRIG_READY_MASK) != 0)
     {
-        return -9;
+        return -MLX90640_MEAS_TRIGGER_ERROR;
     }
     
-    return 0;    
+    return MLX90640_NO_ERROR;    
 }
-
-
-MLX90640_Result_t MLX90640_VerifyFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]) {
-    MLX90640_Result_t error = 0;
-    error = ValidateAuxData(&frameData[MLX90640_PIXEL_TOTAL]);
-    if(error != 0)
-    {
-        return error;
-    }     
-
-    error = ValidateFrameData(frameData);
-    return error;
-
-}
-
-
-MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH])
+    
+int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameData)
 {
     uint16_t dataReady = 0;
     uint16_t controlRegister1;
-    uint16_t statusRegister = 0;
+    uint16_t statusRegister;
     int error = 1;
+    uint16_t data[64];
+    uint8_t cnt = 0;
     
     while(dataReady == 0)
     {
-        error = MLX90640_I2CRead(slaveAddr, MLX90640_STATUS_REGISTER, 1, &statusRegister);
-        if(error != 0)
+        error = MLX90640_I2CRead(slaveAddr, MLX90640_STATUS_REG, 1, &statusRegister);
+        if(error != MLX90640_NO_ERROR)
         {
             return error;
         }    
-        dataReady = statusRegister & MLX90640_STATUS_NEW_DATA_IN_RAM_FLAG;
+        //dataReady = statusRegister & 0x0008;
+        dataReady = MLX90640_GET_DATA_READY(statusRegister); 
     }      
-  
-    error = MLX90640_I2CWrite(slaveAddr, MLX90640_STATUS_REGISTER, 0x0030);
-    if(error == -1)
+    
+    error = MLX90640_I2CWrite(slaveAddr, MLX90640_STATUS_REG, MLX90640_INIT_STATUS_VALUE);
+    if(error == -MLX90640_I2C_NACK_ERROR)
     {
         return error;
     }
                      
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_RAM_PIXELS_START, MLX90640_PIXEL_TOTAL, frameData); 
-    if(error != 0)
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_PIXEL_DATA_START_ADDRESS, MLX90640_PIXEL_NUM, frameData); 
+    if(error != MLX90640_NO_ERROR)
     {
         return error;
     }                       
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_RAM_AUX_DATA_START, MLX90640_RAM_AUX_DATA_LENGTH, &frameData[MLX90640_PIXEL_TOTAL]); 
-    if(error != 0)
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_AUX_DATA_START_ADDRESS, MLX90640_AUX_NUM, data); 
+    if(error != MLX90640_NO_ERROR)
     {
         return error;
     }     
         
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
-    frameData[MLX90640_FRAME_CONTROL_REGISTER] = controlRegister1;
-    frameData[MLX90640_FRAME_SUBPAGE] = statusRegister & MLX90640_STATUS_SUBPAGE_MASK;
-
-    if(error != 0)
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
+    frameData[832] = controlRegister1;
+    //frameData[833] = statusRegister & 0x0001;
+    frameData[833] = MLX90640_GET_FRAME(statusRegister);
+    
+    if(error != MLX90640_NO_ERROR)
     {
         return error;
     }
     
-    error = ValidateAuxData(&frameData[MLX90640_PIXEL_TOTAL]);
-    if (error != 0)
+    error = ValidateAuxData(data);
+    if(error == MLX90640_NO_ERROR)
     {
-        return error;
-    }
+        for(cnt=0; cnt<MLX90640_AUX_NUM; cnt++)
+        {
+            frameData[cnt+MLX90640_PIXEL_NUM] = data[cnt];
+        }
+    }        
     
     error = ValidateFrameData(frameData);
-    if (error != 0)
+    if (error != MLX90640_NO_ERROR)
     {
         return error;
     }
     
-    return frameData[MLX90640_FRAME_SUBPAGE];    
+    return frameData[833];    
 }
 
-
-static int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH])
+static int ValidateFrameData(const uint16_t *frameData)
 {
-    for(int line=0; line<MLX90640_PIXEL_ROWS; line++)
+    uint8_t line = 0;
+    
+    for(int i=0; i<MLX90640_PIXEL_NUM; i+=MLX90640_LINE_SIZE)
     {
-        int i = MLX90640_PIXEL_IDX(0,line);
-        if((frameData[i] == 0x7FFF) && (line%2 == frameData[MLX90640_FRAME_SUBPAGE])) return -8;
+        if((frameData[i] == 0x7FFF) && (line%2 == frameData[833])) return -MLX90640_FRAME_DATA_ERROR;
+        line = line + 1;
     }    
         
-    return 0;    
+    return MLX90640_NO_ERROR;    
 }
-
 
 static int ValidateAuxData(const uint16_t *auxData)
 {
     
-    if(auxData[0] == 0x7FFF) return -8;    
+    if(auxData[0] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;    
     
     for(int i=8; i<19; i++)
     {
-        if(auxData[i] == 0x7FFF) return -8;
+        if(auxData[i] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;
     }
     
     for(int i=20; i<23; i++)
     {
-        if(auxData[i] == 0x7FFF) return -8;
+        if(auxData[i] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;
     }
     
     for(int i=24; i<33; i++)
     {
-        if(auxData[i] == 0x7FFF) return -8;
+        if(auxData[i] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;
     }
     
     for(int i=40; i<51; i++)
     {
-        if(auxData[i] == 0x7FFF) return -8;
+        if(auxData[i] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;
     }
     
     for(int i=52; i<55; i++)
     {
-        if(auxData[i] == 0x7FFF) return -8;
+        if(auxData[i] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;
     }
     
     for(int i=56; i<64; i++)
     {
-        if(auxData[i] == 0x7FFF) return -8;
+        if(auxData[i] == 0x7FFF) return -MLX90640_FRAME_DATA_ERROR;
     }
     
-    return 0;
+    return MLX90640_NO_ERROR;
     
 }
     
-int MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+int MLX90640_ExtractParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     int error = 0;
     
@@ -282,9 +245,9 @@ int MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], pa
     ExtractAlphaParameters(eeData, mlx90640);
     ExtractOffsetParameters(eeData, mlx90640);
     ExtractKtaPixelParameters(eeData, mlx90640);
-    error |= ExtractKvPixelParameters(eeData, mlx90640);
+    ExtractKvPixelParameters(eeData, mlx90640);
     ExtractCILCParameters(eeData, mlx90640);
-    error |= ExtractDeviatingPixels(eeData, mlx90640);  
+    error = ExtractDeviatingPixels(eeData, mlx90640);  
     
     return error;
 
@@ -295,17 +258,19 @@ int MLX90640_ExtractParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], pa
 int MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution)
 {
     uint16_t controlRegister1;
-    int value;
+    uint16_t value;
     int error;
     
-    value = (resolution & 0x03) << 10;
+    //value = (resolution & 0x03) << 10;
+    value = ((uint16_t)resolution << MLX90640_CTRL_RESOLUTION_SHIFT);
+    value &= ~MLX90640_CTRL_RESOLUTION_MASK;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
     
-    if(error == 0)
+    if(error == MLX90640_NO_ERROR)
     {
-        value = (controlRegister1 & 0xF3FF) | value;
-        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CONTROL_REGISTER, value);        
+        value = (controlRegister1 & MLX90640_CTRL_RESOLUTION_MASK) | value;
+        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CTRL_REG, value);        
     }    
     
     return error;
@@ -319,12 +284,12 @@ int MLX90640_GetCurResolution(uint8_t slaveAddr)
     int resolutionRAM;
     int error;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
-    if(error != 0)
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
+    if(error != MLX90640_NO_ERROR)
     {
         return error;
     }    
-    resolutionRAM = (controlRegister1 & 0x0C00) >> 10;
+    resolutionRAM = (controlRegister1 & ~MLX90640_CTRL_RESOLUTION_MASK) >> MLX90640_CTRL_RESOLUTION_SHIFT;
     
     return resolutionRAM; 
 }
@@ -334,16 +299,18 @@ int MLX90640_GetCurResolution(uint8_t slaveAddr)
 int MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate)
 {
     uint16_t controlRegister1;
-    int value;
+    uint16_t value;
     int error;
     
-    value = (refreshRate & 0x07)<<7;
+    //value = (refreshRate & 0x07)<<7;
+    value = ((uint16_t)refreshRate << MLX90640_CTRL_REFRESH_SHIFT);
+    value &= ~MLX90640_CTRL_REFRESH_MASK;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
-    if(error == 0)
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
+    if(error == MLX90640_NO_ERROR)
     {
-        value = (controlRegister1 & 0xFC7F) | value;
-        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CONTROL_REGISTER, value);
+        value = (controlRegister1 & MLX90640_CTRL_REFRESH_MASK) | value;
+        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CTRL_REG, value);
     }    
     
     return error;
@@ -357,12 +324,12 @@ int MLX90640_GetRefreshRate(uint8_t slaveAddr)
     int refreshRate;
     int error;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
-    if(error != 0)
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
+    if(error != MLX90640_NO_ERROR)
     {
         return error;
     }    
-    refreshRate = (controlRegister1 & 0x0380) >> 7;
+    refreshRate = (controlRegister1 & ~MLX90640_CTRL_REFRESH_MASK) >> MLX90640_CTRL_REFRESH_SHIFT;
     
     return refreshRate;
 }
@@ -372,15 +339,15 @@ int MLX90640_GetRefreshRate(uint8_t slaveAddr)
 int MLX90640_SetInterleavedMode(uint8_t slaveAddr)
 {
     uint16_t controlRegister1;
-    int value;
+    uint16_t value;
     int error;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
     
     if(error == 0)
     {
-        value = (controlRegister1 & 0xEFFF);
-        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CONTROL_REGISTER, value);        
+        value = (controlRegister1 & ~MLX90640_CTRL_MEAS_MODE_MASK);
+        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CTRL_REG, value);        
     }    
     
     return error;
@@ -391,15 +358,15 @@ int MLX90640_SetInterleavedMode(uint8_t slaveAddr)
 int MLX90640_SetChessMode(uint8_t slaveAddr)
 {
     uint16_t controlRegister1;
-    int value;
+    uint16_t value;
     int error;
         
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
     
     if(error == 0)
     {
-        value = (controlRegister1 | 0x1000);
-        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CONTROL_REGISTER, value);        
+        value = (controlRegister1 | MLX90640_CTRL_MEAS_MODE_MASK);
+        error = MLX90640_I2CWrite(slaveAddr, MLX90640_CTRL_REG, value);        
     }    
     
     return error;
@@ -413,19 +380,19 @@ int MLX90640_GetCurMode(uint8_t slaveAddr)
     int modeRAM;
     int error;
     
-    error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
+    error = MLX90640_I2CRead(slaveAddr, MLX90640_CTRL_REG, 1, &controlRegister1);
     if(error != 0)
     {
         return error;
     }    
-    modeRAM = (controlRegister1 & 0x1000) >> 12;
+    modeRAM = (controlRegister1 & MLX90640_CTRL_MEAS_MODE_MASK) >> MLX90640_CTRL_MEAS_MODE_SHIFT;
     
     return modeRAM; 
 }
 
 //------------------------------------------------------------------------------
 
-void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float tr, float result[MLX90640_PIXEL_TOTAL])
+void MLX90640_CalculateTo(const uint16_t *frameData, const paramsMLX90640 *params, float emissivity, float tr, float *result)
 {
     float vdd;
     float ta;
@@ -456,17 +423,17 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
     vdd = MLX90640_GetVdd(frameData, params);
     ta = MLX90640_GetTa(frameData, params);
     
-    ta4 = (ta + 273.15f);
+    ta4 = (ta + 273.15);
     ta4 = ta4 * ta4;
     ta4 = ta4 * ta4;
-    tr4 = (tr + 273.15f);
+    tr4 = (tr + 273.15);
     tr4 = tr4 * tr4;
     tr4 = tr4 * tr4;
     taTr = tr4 - (tr4-ta4)/emissivity;
     
-    ktaScale = exp2f((float)params->ktaScale);
-    kvScale = exp2f((float)params->kvScale);
-    alphaScale = exp2f((float)params->alphaScale);
+    ktaScale = POW2(params->ktaScale);
+    kvScale = POW2(params->kvScale);
+    alphaScale = POW2(params->alphaScale);
     
     alphaCorrR[0] = 1 / (1 + params->ksTo[0] * 40);
     alphaCorrR[1] = 1 ;
@@ -474,35 +441,23 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
     alphaCorrR[3] = alphaCorrR[2] * (1 + params->ksTo[2] * (params->ct[3] - params->ct[2]));
     
 //------------------------- Gain calculation -----------------------------------    
-    gain = frameData[778];
-    if(gain > 32767)
-    {
-        gain = gain - 65536;
-    }
     
-    gain = params->gainEE / gain; 
+    gain = (float)params->gainEE / (int16_t)frameData[778]; 
   
 //------------------------- To calculation -------------------------------------    
-    mode = (frameData[832] & 0x1000) >> 5;
+    mode = (frameData[832] & MLX90640_CTRL_MEAS_MODE_MASK) >> 5;
     
-    irDataCP[0] = frameData[776];  
-    irDataCP[1] = frameData[808];
-    for( int i = 0; i < 2; i++)
-    {
-        if(irDataCP[i] > 32767)
-        {
-            irDataCP[i] = irDataCP[i] - 65536;
-        }
-        irDataCP[i] = irDataCP[i] * gain;
-    }
-    irDataCP[0] = irDataCP[0] - params->cpOffset[0] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3f));
+    irDataCP[0] = (int16_t)frameData[776] * gain;
+    irDataCP[1] = (int16_t)frameData[808] * gain;
+    
+    irDataCP[0] = irDataCP[0] - params->cpOffset[0] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3));
     if( mode ==  params->calibrationModeEE)
     {
-        irDataCP[1] = irDataCP[1] - params->cpOffset[1] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3f));
+        irDataCP[1] = irDataCP[1] - params->cpOffset[1] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3));
     }
     else
     {
-      irDataCP[1] = irDataCP[1] - (params->cpOffset[1] + params->ilChessC[0]) * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3f));
+      irDataCP[1] = irDataCP[1] - (params->cpOffset[1] + params->ilChessC[0]) * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3));
     }
 
     for( int pixelNumber = 0; pixelNumber < 768; pixelNumber++)
@@ -522,16 +477,11 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
         
         if(pattern == frameData[833])
         {    
-            irData = frameData[pixelNumber];
-            if(irData > 32767)
-            {
-                irData = irData - 65536;
-            }
-            irData = irData * gain;
+            irData = (int16_t)frameData[pixelNumber] * gain;
             
             kta = params->kta[pixelNumber]/ktaScale;
             kv = params->kv[pixelNumber]/kvScale;
-            irData = irData - params->offset[pixelNumber]*(1.0f + kta*(ta - 25.0f))*(1 + kv*(vdd - 3.3f));
+            irData = irData - params->offset[pixelNumber]*(1 + kta*(ta - 25))*(1 + kv*(vdd - 3.3));
             
             if(mode !=  params->calibrationModeEE)
             {
@@ -547,7 +497,7 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
             Sx = alphaCompensated * alphaCompensated * alphaCompensated * (irData + alphaCompensated * taTr);
             Sx = sqrt(sqrt(Sx)) * params->ksTo[1];            
             
-            To = sqrt(sqrt(irData/(alphaCompensated * (1.0f - params->ksTo[1] * 273.15f) + Sx) + taTr)) - 273.15f;                     
+            To = sqrt(sqrt(irData/(alphaCompensated * (1 - params->ksTo[1] * 273.15) + Sx) + taTr)) - 273.15;                     
                     
             if(To < params->ct[1])
             {
@@ -566,7 +516,7 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
                 range = 3;            
             }      
             
-            To = sqrtf(sqrt(irData / (alphaCompensated * alphaCorrR[range] * (1.0f + params->ksTo[range] * (To - params->ct[range]))) + taTr)) - 273.15f;
+            To = sqrt(sqrt(irData / (alphaCompensated * alphaCorrR[range] * (1 + params->ksTo[range] * (To - params->ct[range]))) + taTr)) - 273.15;
                         
             result[pixelNumber] = To;
         }
@@ -575,7 +525,7 @@ void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const
 
 //------------------------------------------------------------------------------
 
-void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL])
+void MLX90640_GetImage(const uint16_t *frameData, const paramsMLX90640 *params, float *result)
 {
     float vdd;
     float ta;
@@ -599,39 +549,28 @@ void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const pa
     vdd = MLX90640_GetVdd(frameData, params);
     ta = MLX90640_GetTa(frameData, params);
     
-    ktaScale = exp2f((float)params->ktaScale);
-    kvScale = exp2f((float)params->kvScale);
+    ktaScale = POW2(params->ktaScale);
+    kvScale = POW2(params->kvScale);
     
 //------------------------- Gain calculation -----------------------------------    
-    gain = frameData[778];
-    if(gain > 32767)
-    {
-        gain = gain - 65536;
-    }
     
-    gain = params->gainEE / gain; 
+    gain = (float)params->gainEE / (int16_t)frameData[778]; 
   
 //------------------------- Image calculation -------------------------------------    
-    mode = (frameData[832] & 0x1000) >> 5;
     
-    irDataCP[0] = frameData[776];  
-    irDataCP[1] = frameData[808];
-    for( int i = 0; i < 2; i++)
-    {
-        if(irDataCP[i] > 32767)
-        {
-            irDataCP[i] = irDataCP[i] - 65536;
-        }
-        irDataCP[i] = irDataCP[i] * gain;
-    }
-    irDataCP[0] = irDataCP[0] - params->cpOffset[0] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3f));
+    mode = (frameData[832] & MLX90640_CTRL_MEAS_MODE_MASK) >> 5;
+    
+    irDataCP[0] = (int16_t)frameData[776] * gain;
+    irDataCP[1] = (int16_t)frameData[808] * gain;
+    
+    irDataCP[0] = irDataCP[0] - params->cpOffset[0] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3));
     if( mode ==  params->calibrationModeEE)
     {
-        irDataCP[1] = irDataCP[1] - params->cpOffset[1] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3f));
+        irDataCP[1] = irDataCP[1] - params->cpOffset[1] * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3));
     }
     else
     {
-      irDataCP[1] = irDataCP[1] - (params->cpOffset[1] + params->ilChessC[0]) * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3f));
+      irDataCP[1] = irDataCP[1] - (params->cpOffset[1] + params->ilChessC[0]) * (1 + params->cpKta * (ta - 25)) * (1 + params->cpKv * (vdd - 3.3));
     }
 
     for( int pixelNumber = 0; pixelNumber < 768; pixelNumber++)
@@ -651,16 +590,11 @@ void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const pa
         
         if(pattern == frameData[833])
         {    
-            irData = frameData[pixelNumber];
-            if(irData > 32767)
-            {
-                irData = irData - 65536;
-            }
-            irData = irData * gain;
+            irData = (int16_t)frameData[pixelNumber] * gain;
             
             kta = params->kta[pixelNumber]/ktaScale;
             kv = params->kv[pixelNumber]/kvScale;
-            irData = irData - params->offset[pixelNumber]*(1 + kta*(ta - 25))*(1 + kv*(vdd - 3.3f));
+            irData = irData - params->offset[pixelNumber]*(1 + kta*(ta - 25))*(1 + kv*(vdd - 3.3));
 
             if(mode !=  params->calibrationModeEE)
             {
@@ -680,46 +614,36 @@ void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const pa
 
 //------------------------------------------------------------------------------
 
-float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params)
+float MLX90640_GetVdd(const uint16_t *frameData, const paramsMLX90640 *params)
 {
     float vdd;
     float resolutionCorrection;
 
-    int resolutionRAM;    
+    uint16_t resolutionRAM;  
     
-    vdd = two_complement_15bit(frameData[810]);
-    resolutionRAM = (frameData[832] & 0x0C00) >> 10;
-    resolutionCorrection = exp2f(params->resolutionEE) / exp2f(resolutionRAM);
-    vdd = (resolutionCorrection * vdd - params->vdd25) / params->kVdd + 3.3f;
+    resolutionRAM = (frameData[832] & ~MLX90640_CTRL_RESOLUTION_MASK) >> MLX90640_CTRL_RESOLUTION_SHIFT;   
+    resolutionCorrection = POW2(params->resolutionEE) / POW2(resolutionRAM);
+    vdd = (resolutionCorrection * (int16_t)frameData[810] - params->vdd25) / params->kVdd + 3.3;
     
     return vdd;
 }
 
 //------------------------------------------------------------------------------
 
-float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params)
+float MLX90640_GetTa(const uint16_t *frameData, const paramsMLX90640 *params)
 {
-    float ptat;
+    int16_t ptat;
     float ptatArt;
     float vdd;
     float ta;
     
     vdd = MLX90640_GetVdd(frameData, params);
     
-    ptat = frameData[800];
-    if(ptat > 32767)
-    {
-        ptat = ptat - 65536;
-    }
+    ptat = (int16_t)frameData[800];
     
-    ptatArt = frameData[768];
-    if(ptatArt > 32767)
-    {
-        ptatArt = ptatArt - 65536;
-    }
-    ptatArt = (ptat / (ptat * params->alphaPTAT + ptatArt)) * exp2f(18.0f);
+    ptatArt = (ptat / (ptat * params->alphaPTAT + (int16_t)frameData[768])) * POW2(18);
     
-    ta = (ptatArt / (1 + params->KvPTAT * (vdd - 3.3f)) - params->vPTAT25);
+    ta = (ptatArt / (1 + params->KvPTAT * (vdd - 3.3)) - params->vPTAT25);
     ta = ta / params->KtPTAT + 25;
     
     return ta;
@@ -727,14 +651,14 @@ float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const para
 
 //------------------------------------------------------------------------------
 
-int MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH])
+int MLX90640_GetSubPageNumber(const uint16_t *frameData)
 {
     return frameData[833];    
 
 }    
 
 //------------------------------------------------------------------------------
-void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params)
+void MLX90640_BadPixelsCorrection(const uint16_t *pixels, float *to, int mode,const  paramsMLX90640 *params)
 {   
     float ap[4];
     uint8_t pix;
@@ -761,7 +685,7 @@ void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], f
                 }
                 else
                 {
-                    to[pixels[pix]] = (to[pixels[pix]+31] + to[pixels[pix]+33])/2.0f;                    
+                    to[pixels[pix]] = (to[pixels[pix]+31] + to[pixels[pix]+33])/2.0;                    
                 }        
             }
             else if(line == 23)
@@ -776,16 +700,16 @@ void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], f
                 }
                 else
                 {
-                    to[pixels[pix]] = (to[pixels[pix]-33] + to[pixels[pix]-31])/2.0f;                       
+                    to[pixels[pix]] = (to[pixels[pix]-33] + to[pixels[pix]-31])/2.0;                       
                 }                       
             } 
             else if(column == 0)
             {
-                to[pixels[pix]] = (to[pixels[pix]-31] + to[pixels[pix]+33])/2.0f;                
+                to[pixels[pix]] = (to[pixels[pix]-31] + to[pixels[pix]+33])/2.0;                
             }
             else if(column == 31)
             {
-                to[pixels[pix]] = (to[pixels[pix]-33] + to[pixels[pix]+31])/2.0f;                
+                to[pixels[pix]] = (to[pixels[pix]-33] + to[pixels[pix]+31])/2.0;                
             } 
             else
             {
@@ -793,7 +717,7 @@ void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], f
                 ap[1] = to[pixels[pix]-31];
                 ap[2] = to[pixels[pix]+31];
                 ap[3] = to[pixels[pix]+33];
-                to[pixels[pix]] = GetMedianInPlaceSort(ap,4);
+                to[pixels[pix]] = GetMedian(ap,4);
             }                   
         }
         else
@@ -804,7 +728,7 @@ void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], f
             }
             else if(column == 1 || column == 30)
             {
-                to[pixels[pix]] = (to[pixels[pix]-1]+to[pixels[pix]+1])/2.0f;                
+                to[pixels[pix]] = (to[pixels[pix]-1]+to[pixels[pix]+1])/2.0;                
             } 
             else if(column == 31)
             {
@@ -827,7 +751,7 @@ void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], f
                 }
                 else
                 {
-                    to[pixels[pix]] = (to[pixels[pix]-1]+to[pixels[pix]+1])/2.0f;                    
+                    to[pixels[pix]] = (to[pixels[pix]-1]+to[pixels[pix]+1])/2.0;                    
                 }            
             }                      
         } 
@@ -837,47 +761,46 @@ void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], f
 
 //------------------------------------------------------------------------------
 
-static void ExtractVDDParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractVDDParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
-    int16_t kVdd;
+    int8_t kVdd;
     int16_t vdd25;
     
-    kVdd = two_complement_7bit_msb(eeData[51]);
-    
-    kVdd = 32 * kVdd;
-    vdd25 = two_complement_7bit_lsb(eeData[51]);
+    kVdd = MLX90640_MS_BYTE(eeData[51]);
+
+    vdd25 = MLX90640_LS_BYTE(eeData[51]);
     vdd25 = ((vdd25 - 256) << 5) - 8192;
     
-    mlx90640->kVdd = kVdd;
+    mlx90640->kVdd = 32 * kVdd;
     mlx90640->vdd25 = vdd25; 
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractPTATParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractPTATParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     float KvPTAT;
     float KtPTAT;
     int16_t vPTAT25;
     float alphaPTAT;
     
-    KvPTAT = (eeData[50] & 0xFC00) >> 10;
-    if(KvPTAT > 31.0f)
+    KvPTAT = (eeData[50] & MLX90640_MSBITS_6_MASK) >> 10;
+    if(KvPTAT > 31)
     {
-        KvPTAT = KvPTAT - 64.0f;
+        KvPTAT = KvPTAT - 64;
     }
-    KvPTAT = KvPTAT/4096.0f;
+    KvPTAT = KvPTAT/4096;
     
-    KtPTAT = eeData[50] & 0x03FF;
-    if(KtPTAT > 511.0f)
+    KtPTAT = eeData[50] & MLX90640_LSBITS_10_MASK;
+    if(KtPTAT > 511)
     {
-        KtPTAT = KtPTAT - 1024.0f;
+        KtPTAT = KtPTAT - 1024;
     }
-    KtPTAT = KtPTAT/8.0f;
+    KtPTAT = KtPTAT/8;
     
     vPTAT25 = eeData[49];
     
-    alphaPTAT = (float)(eeData[16] & 0xF000) * exp2f(-14.0f) + 8.0f;
+    alphaPTAT = (eeData[16] & MLX90640_NIBBLE4_MASK) / POW2(14) + 8.0f;
     
     mlx90640->KvPTAT = KvPTAT;
     mlx90640->KtPTAT = KtPTAT;    
@@ -887,29 +810,21 @@ static void ExtractPTATParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH],
 
 //------------------------------------------------------------------------------
 
-static void ExtractGainParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractGainParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
-    mlx90640->gainEE = two_complement_15bit(eeData[48]);  
+    mlx90640->gainEE = (int16_t)eeData[48];;    
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractTgcParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractTgcParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
-    float tgc;
-    tgc = eeData[60] & 0x00FF;
-    if(tgc > 127)
-    {
-        tgc = tgc - 256;
-    }
-    tgc = tgc / 32.0f;
-    
-    mlx90640->tgc = tgc;        
+    mlx90640->tgc = (int8_t)MLX90640_LS_BYTE(eeData[60]) / 32.0f;
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractResolutionParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractResolutionParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     uint8_t resolutionEE;
     resolutionEE = (eeData[56] & 0x3000) >> 12;    
@@ -919,22 +834,14 @@ static void ExtractResolutionParameters(const uint16_t eeData[MLX90640_EEPROM_LE
 
 //------------------------------------------------------------------------------
 
-static void ExtractKsTaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
-{
-    float KsTa;
-    KsTa = (eeData[60] & 0xFF00) >> 8;
-    if(KsTa > 127)
-    {
-        KsTa = KsTa -256;
-    }
-    KsTa = KsTa / 8192.0f;
-    
-    mlx90640->KsTa = KsTa;
+static void ExtractKsTaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
+{   
+    mlx90640->KsTa = (int8_t)MLX90640_MS_BYTE(eeData[60]) / 8192.0f;
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractKsToParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractKsToParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     int32_t KsToScale;
     int8_t step;
@@ -943,36 +850,26 @@ static void ExtractKsToParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH],
     
     mlx90640->ct[0] = -40;
     mlx90640->ct[1] = 0;
-    mlx90640->ct[2] = (eeData[63] & 0x00F0) >> 4;
-    mlx90640->ct[3] = (eeData[63] & 0x0F00) >> 8;    
+    mlx90640->ct[2] = MLX90640_NIBBLE2(eeData[63]);
+    mlx90640->ct[3] = MLX90640_NIBBLE3(eeData[63]);
     
     mlx90640->ct[2] = mlx90640->ct[2]*step;
     mlx90640->ct[3] = mlx90640->ct[2] + mlx90640->ct[3]*step;
     mlx90640->ct[4] = 400;
     
-    KsToScale = (eeData[63] & 0x000F) + 8;
+    KsToScale = MLX90640_NIBBLE1(eeData[63]) + 8;
     KsToScale = 1UL << KsToScale;
     
-    mlx90640->ksTo[0] = eeData[61] & 0x00FF;
-    mlx90640->ksTo[1] = (eeData[61] & 0xFF00) >> 8;
-    mlx90640->ksTo[2] = eeData[62] & 0x00FF;
-    mlx90640->ksTo[3] = (eeData[62] & 0xFF00) >> 8;      
-    
-    for(int i = 0; i < 4; i++)
-    {
-        if(mlx90640->ksTo[i] > 127.0f)
-        {
-            mlx90640->ksTo[i] = mlx90640->ksTo[i] - 256.0f;
-        }
-        mlx90640->ksTo[i] = mlx90640->ksTo[i] / KsToScale;
-    } 
-    
-    mlx90640->ksTo[4] = -0.0002f;
+    mlx90640->ksTo[0] = (int8_t)MLX90640_LS_BYTE(eeData[61]) / (float)KsToScale;
+    mlx90640->ksTo[1] = (int8_t)MLX90640_MS_BYTE(eeData[61]) / (float)KsToScale;
+    mlx90640->ksTo[2] = (int8_t)MLX90640_LS_BYTE(eeData[62]) / (float)KsToScale;
+    mlx90640->ksTo[3] = (int8_t)MLX90640_MS_BYTE(eeData[62]) / (float)KsToScale;
+    mlx90640->ksTo[4] = -0.0002;
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractAlphaParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     int accRow[24];
     int accColumn[32];
@@ -986,22 +883,22 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
     float temp;
     
 
-    accRemScale = eeData[32] & 0x000F;
-    accColumnScale = (eeData[32] & 0x00F0) >> 4;
-    accRowScale = (eeData[32] & 0x0F00) >> 8;
-    alphaScale = ((eeData[32] & 0xF000) >> 12) + 30;
+    accRemScale = MLX90640_NIBBLE1(eeData[32]);
+    accColumnScale = MLX90640_NIBBLE2(eeData[32]);
+    accRowScale = MLX90640_NIBBLE3(eeData[32]);
+    alphaScale = MLX90640_NIBBLE4(eeData[32]) + 30;
     alphaRef = eeData[33];
     
     for(int i = 0; i < 6; i++)
     {
         p = i * 4;
-        accRow[p + 0] = (eeData[34 + i] & 0x000F);
-        accRow[p + 1] = (eeData[34 + i] & 0x00F0) >> 4;
-        accRow[p + 2] = (eeData[34 + i] & 0x0F00) >> 8;
-        accRow[p + 3] = (eeData[34 + i] & 0xF000) >> 12;
+        accRow[p + 0] = MLX90640_NIBBLE1(eeData[34 + i]);
+        accRow[p + 1] = MLX90640_NIBBLE2(eeData[34 + i]);
+        accRow[p + 2] = MLX90640_NIBBLE3(eeData[34 + i]);
+        accRow[p + 3] = MLX90640_NIBBLE4(eeData[34 + i]);
     }
     
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < MLX90640_LINE_NUM; i++)
     {
         if (accRow[i] > 7)
         {
@@ -1012,13 +909,13 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
     for(int i = 0; i < 8; i++)
     {
         p = i * 4;
-        accColumn[p + 0] = (eeData[40 + i] & 0x000F);
-        accColumn[p + 1] = (eeData[40 + i] & 0x00F0) >> 4;
-        accColumn[p + 2] = (eeData[40 + i] & 0x0F00) >> 8;
-        accColumn[p + 3] = (eeData[40 + i] & 0xF000) >> 12;
+        accColumn[p + 0] = MLX90640_NIBBLE1(eeData[40 + i]);
+        accColumn[p + 1] = MLX90640_NIBBLE2(eeData[40 + i]);
+        accColumn[p + 2] = MLX90640_NIBBLE3(eeData[40 + i]);
+        accColumn[p + 3] = MLX90640_NIBBLE4(eeData[40 + i]);
     }
     
-    for(int i = 0; i < 32; i ++)
+    for(int i = 0; i < MLX90640_COLUMN_NUM; i++)
     {
         if (accColumn[i] > 7)
         {
@@ -1026,9 +923,9 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
         }
     }
 
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < MLX90640_LINE_NUM; i++)
     {
-        for(int j = 0; j < 32; j ++)
+        for(int j = 0; j < MLX90640_COLUMN_NUM; j ++)
         {
             p = 32 * i +j;
             alphaTemp[p] = (eeData[64 + p] & 0x03F0) >> 4;
@@ -1038,14 +935,14 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
             }
             alphaTemp[p] = alphaTemp[p]*(1 << accRemScale);
             alphaTemp[p] = (alphaRef + (accRow[i] << accRowScale) + (accColumn[j] << accColumnScale) + alphaTemp[p]);
-            alphaTemp[p] = alphaTemp[p] / exp2f((float)alphaScale);
+            alphaTemp[p] = alphaTemp[p] / POW2(alphaScale);
             alphaTemp[p] = alphaTemp[p] - mlx90640->tgc * (mlx90640->cpAlpha[0] + mlx90640->cpAlpha[1])/2;
             alphaTemp[p] = SCALEALPHA/alphaTemp[p];
         }
     }
     
     temp = alphaTemp[0];
-    for(int i = 1; i < 768; i++)
+    for(int i = 1; i < MLX90640_PIXEL_NUM; i++)
     {
         if (alphaTemp[i] > temp)
         {
@@ -1054,16 +951,16 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
     }
     
     alphaScale = 0;
-    while(temp > 0.0f && temp < 32767.4f)
+    while(temp < 32767.4)
     {
-        temp = temp*2.0f;
+        temp = temp*2;
         alphaScale = alphaScale + 1;
     } 
     
-    for(int i = 0; i < 768; i++)
+    for(int i = 0; i < MLX90640_PIXEL_NUM; i++)
     {
-        temp = alphaTemp[i] * exp2f((float)alphaScale);        
-        mlx90640->alpha[i] = (uint16_t)(temp + 0.5f);        
+        temp = alphaTemp[i] * POW2(alphaScale);        
+        mlx90640->alpha[i] = (temp + 0.5);        
         
     } 
     
@@ -1073,7 +970,7 @@ static void ExtractAlphaParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH]
 
 //------------------------------------------------------------------------------
 
-static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractOffsetParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     int occRow[24];
     int occColumn[32];
@@ -1084,21 +981,21 @@ static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH
     uint8_t occRemScale;
     
 
-    occRemScale = (eeData[16] & 0x000F);
-    occColumnScale = (eeData[16] & 0x00F0) >> 4;
-    occRowScale = (eeData[16] & 0x0F00) >> 8;
-    offsetRef = two_complement_15bit(eeData[17]);
-    
+    occRemScale = MLX90640_NIBBLE1(eeData[16]);
+    occColumnScale = MLX90640_NIBBLE2(eeData[16]);
+    occRowScale = MLX90640_NIBBLE3(eeData[16]);
+    offsetRef = (int16_t)eeData[17];
+        
     for(int i = 0; i < 6; i++)
     {
         p = i * 4;
-        occRow[p + 0] = (eeData[18 + i] & 0x000F);
-        occRow[p + 1] = (eeData[18 + i] & 0x00F0) >> 4;
-        occRow[p + 2] = (eeData[18 + i] & 0x0F00) >> 8;
-        occRow[p + 3] = (eeData[18 + i] & 0xF000) >> 12;
+        occRow[p + 0] = MLX90640_NIBBLE1(eeData[18 + i]);
+        occRow[p + 1] = MLX90640_NIBBLE2(eeData[18 + i]);
+        occRow[p + 2] = MLX90640_NIBBLE3(eeData[18 + i]);
+        occRow[p + 3] = MLX90640_NIBBLE4(eeData[18 + i]);
     }
     
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < MLX90640_LINE_NUM; i++)
     {
         if (occRow[i] > 7)
         {
@@ -1109,13 +1006,13 @@ static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH
     for(int i = 0; i < 8; i++)
     {
         p = i * 4;
-        occColumn[p + 0] = (eeData[24 + i] & 0x000F);
-        occColumn[p + 1] = (eeData[24 + i] & 0x00F0) >> 4;
-        occColumn[p + 2] = (eeData[24 + i] & 0x0F00) >> 8;
-        occColumn[p + 3] = (eeData[24 + i] & 0xF000) >> 12;
+        occColumn[p + 0] = MLX90640_NIBBLE1(eeData[24 + i]);
+        occColumn[p + 1] = MLX90640_NIBBLE2(eeData[24 + i]);
+        occColumn[p + 2] = MLX90640_NIBBLE3(eeData[24 + i]);
+        occColumn[p + 3] = MLX90640_NIBBLE4(eeData[24 + i]);
     }
     
-    for(int i = 0; i < 32; i ++)
+    for(int i = 0; i < MLX90640_COLUMN_NUM; i ++)
     {
         if (occColumn[i] > 7)
         {
@@ -1123,12 +1020,12 @@ static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH
         }
     }
 
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < MLX90640_LINE_NUM; i++)
     {
-        for(int j = 0; j < 32; j ++)
+        for(int j = 0; j < MLX90640_COLUMN_NUM; j ++)
         {
             p = 32 * i +j;
-            mlx90640->offset[p] = (eeData[64 + p] & 0xFC00) >> 10;
+            mlx90640->offset[p] = (eeData[64 + p] & MLX90640_MSBITS_6_MASK) >> 10;
             if (mlx90640->offset[p] > 31)
             {
                 mlx90640->offset[p] = mlx90640->offset[p] - 64;
@@ -1141,38 +1038,27 @@ static void ExtractOffsetParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH
 
 //------------------------------------------------------------------------------
 
-static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractKtaPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     int p = 0;
     int8_t KtaRC[4];
-    int8_t KtaRoCo;
-    int8_t KtaRoCe;
-    int8_t KtaReCo;
-    int8_t KtaReCe;
     uint8_t ktaScale1;
     uint8_t ktaScale2;
     uint8_t split;
     float ktaTemp[768];
     float temp;
     
-    KtaRoCo = two_complement_7bit_msb(eeData[54]);
-    KtaRC[0] = KtaRoCo;
-    
-    KtaReCo = two_complement_7bit_lsb(eeData[54]);
-    KtaRC[2] = KtaReCo;
+    KtaRC[0] = (int8_t)MLX90640_MS_BYTE(eeData[54]);;
+    KtaRC[2] = (int8_t)MLX90640_LS_BYTE(eeData[54]);;
+    KtaRC[1] = (int8_t)MLX90640_MS_BYTE(eeData[55]);;
+    KtaRC[3] = (int8_t)MLX90640_LS_BYTE(eeData[55]);;
       
-    KtaRoCe = two_complement_7bit_msb(eeData[55]);
-    KtaRC[1] = KtaRoCe;
-      
-    KtaReCe = two_complement_7bit_lsb(eeData[55]);
-    KtaRC[3] = KtaReCe;
-  
-    ktaScale1 = ((eeData[56] & 0x00F0) >> 4) + 8;
-    ktaScale2 = (eeData[56] & 0x000F);
+    ktaScale1 = MLX90640_NIBBLE2(eeData[56]) + 8;
+    ktaScale2 = MLX90640_NIBBLE1(eeData[56]);
 
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < MLX90640_LINE_NUM; i++)
     {
-        for(int j = 0; j < 32; j ++)
+        for(int j = 0; j < MLX90640_COLUMN_NUM; j ++)
         {
             p = 32 * i +j;
             split = 2*(p/32 - (p/64)*2) + p%2;
@@ -1183,13 +1069,13 @@ static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENG
             }
             ktaTemp[p] = ktaTemp[p] * (1 << ktaScale2);
             ktaTemp[p] = KtaRC[split] + ktaTemp[p];
-            ktaTemp[p] = ktaTemp[p] / exp2f((float)ktaScale1);
-            //ktaTemp[p] = ktaTemp[p] * mlx90640->offset[p];
+            ktaTemp[p] = ktaTemp[p] / POW2(ktaScale1);
+            
         }
     }
     
     temp = fabs(ktaTemp[0]);
-    for(int i = 1; i < 768; i++)
+    for(int i = 1; i < MLX90640_PIXEL_NUM; i++)
     {
         if (fabs(ktaTemp[i]) > temp)
         {
@@ -1198,22 +1084,22 @@ static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENG
     }
     
     ktaScale1 = 0;
-    while(temp < 63.4f)
+    while(temp < 63.4)
     {
-        temp = temp*2.0f;
+        temp = temp*2;
         ktaScale1 = ktaScale1 + 1;
     }    
      
-    for(int i = 0; i < 768; i++)
+    for(int i = 0; i < MLX90640_PIXEL_NUM; i++)
     {
-        temp = ktaTemp[i] * exp2f((float)ktaScale1);
+        temp = ktaTemp[i] * POW2(ktaScale1);
         if (temp < 0)
         {
-            mlx90640->kta[i] = (int8_t)(temp - 0.5f);
+            mlx90640->kta[i] = (temp - 0.5);
         }
         else
         {
-            mlx90640->kta[i] = (int8_t)(temp + 0.5f);
+            mlx90640->kta[i] = (temp + 0.5);
         }        
         
     } 
@@ -1224,7 +1110,7 @@ static void ExtractKtaPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENG
 
 //------------------------------------------------------------------------------
 
-static int ExtractKvPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractKvPixelParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     int p = 0;
     int8_t KvT[4];
@@ -1237,51 +1123,50 @@ static int ExtractKvPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH
     float kvTemp[768];
     float temp;
 
-    KvRoCo = (eeData[52] & 0xF000) >> 12;
+    KvRoCo = MLX90640_NIBBLE4(eeData[52]);
     if (KvRoCo > 7)
     {
         KvRoCo = KvRoCo - 16;
     }
     KvT[0] = KvRoCo;
     
-    KvReCo = (eeData[52] & 0x0F00) >> 8;
+    KvReCo = MLX90640_NIBBLE3(eeData[52]);
     if (KvReCo > 7)
     {
         KvReCo = KvReCo - 16;
     }
     KvT[2] = KvReCo;
       
-    KvRoCe = (eeData[52] & 0x00F0) >> 4;
+    KvRoCe = MLX90640_NIBBLE2(eeData[52]);
     if (KvRoCe > 7)
     {
         KvRoCe = KvRoCe - 16;
     }
     KvT[1] = KvRoCe;
       
-    KvReCe = (eeData[52] & 0x000F);
+    KvReCe = MLX90640_NIBBLE1(eeData[52]);
     if (KvReCe > 7)
     {
         KvReCe = KvReCe - 16;
     }
     KvT[3] = KvReCe;
   
-    kvScale = (eeData[56] & 0x0F00) >> 8;
+    kvScale = MLX90640_NIBBLE3(eeData[56]);
 
 
-    for(int i = 0; i < 24; i++)
+    for(int i = 0; i < MLX90640_LINE_NUM; i++)
     {
-        for(int j = 0; j < 32; j ++)
+        for(int j = 0; j < MLX90640_COLUMN_NUM; j ++)
         {
             p = 32 * i +j;
             split = 2*(p/32 - (p/64)*2) + p%2;
             kvTemp[p] = KvT[split];
-            kvTemp[p] = kvTemp[p] / exp2f((float)kvScale);
-            //kvTemp[p] = kvTemp[p] * mlx90640->offset[p];
+            kvTemp[p] = kvTemp[p] / POW2(kvScale);
         }
     }
     
     temp = fabs(kvTemp[0]);
-    for(int i = 1; i < 768; i++)
+    for(int i = 1; i < MLX90640_PIXEL_NUM; i++)
     {
         if (fabs(kvTemp[i]) > temp)
         {
@@ -1290,36 +1175,32 @@ static int ExtractKvPixelParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH
     }
     
     kvScale = 0;
-
-    if (temp <= 0.0f) return -7;
-
-    while(temp > 0.0f && temp < 63.4f)
+    while(temp < 63.4)
     {
         temp = temp*2;
         kvScale = kvScale + 1;
     }    
      
-    for(int i = 0; i < 768; i++)
+    for(int i = 0; i < MLX90640_PIXEL_NUM; i++)
     {
-        temp = kvTemp[i] * exp2f(kvScale);
-        if (temp < 0.0f)
+        temp = kvTemp[i] * POW2(kvScale);
+        if (temp < 0)
         {
-            mlx90640->kv[i] = (int8_t)(temp - 0.5f);
+            mlx90640->kv[i] = (temp - 0.5);
         }
         else
         {
-            mlx90640->kv[i] = (int8_t)(temp + 0.5f);
+            mlx90640->kv[i] = (temp + 0.5);
         }        
         
     } 
     
-    mlx90640->kvScale = kvScale;       
-    return 0; 
+    mlx90640->kvScale = kvScale;        
 }
 
 //------------------------------------------------------------------------------
 
-static void ExtractCPParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractCPParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     float alphaSP[2];
     int16_t offsetSP[2];
@@ -1329,50 +1210,44 @@ static void ExtractCPParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], p
     uint8_t ktaScale1;
     uint8_t kvScale;
 
-    alphaScale = ((eeData[32] & 0xF000) >> 12) + 27;
+    alphaScale = MLX90640_NIBBLE4(eeData[32]) + 27;
     
-    offsetSP[0] = (eeData[58] & 0x03FF);
+    offsetSP[0] = (eeData[58] & MLX90640_LSBITS_10_MASK);
     if (offsetSP[0] > 511)
     {
         offsetSP[0] = offsetSP[0] - 1024;
     }
     
-    offsetSP[1] = (eeData[58] & 0xFC00) >> 10;
+    offsetSP[1] = (eeData[58] & MLX90640_MSBITS_6_MASK) >> 10;
     if (offsetSP[1] > 31)
     {
         offsetSP[1] = offsetSP[1] - 64;
     }
     offsetSP[1] = offsetSP[1] + offsetSP[0]; 
     
-    alphaSP[0] = (eeData[57] & 0x03FF);
+    alphaSP[0] = (eeData[57] & MLX90640_LSBITS_10_MASK);
     if (alphaSP[0] > 511)
     {
         alphaSP[0] = alphaSP[0] - 1024;
     }
-    alphaSP[0] = alphaSP[0] /  exp2f((float)alphaScale);
+    alphaSP[0] = alphaSP[0] /  POW2(alphaScale);
     
-    alphaSP[1] = (eeData[57] & 0xFC00) >> 10;
+    alphaSP[1] = (eeData[57] & MLX90640_MSBITS_6_MASK) >> 10;
     if (alphaSP[1] > 31)
     {
         alphaSP[1] = alphaSP[1] - 64;
     }
     alphaSP[1] = (1 + alphaSP[1]/128) * alphaSP[0];
     
-    cpKta = (eeData[59] & 0x00FF);
-    if (cpKta > 127)
-    {
-        cpKta = cpKta - 256;
-    }
-    ktaScale1 = ((eeData[56] & 0x00F0) >> 4) + 8;    
-    mlx90640->cpKta = cpKta / exp2f((float)ktaScale1);
+    cpKta = (int8_t)MLX90640_LS_BYTE(eeData[59]);
     
-    cpKv = (eeData[59] & 0xFF00) >> 8;
-    if (cpKv > 127)
-    {
-        cpKv = cpKv - 256;
-    }
-    kvScale = (eeData[56] & 0x0F00) >> 8;
-    mlx90640->cpKv = cpKv / exp2f((float)kvScale);
+    ktaScale1 = MLX90640_NIBBLE2(eeData[56]) + 8;    
+    mlx90640->cpKta = cpKta / POW2(ktaScale1);
+    
+    cpKv = (int8_t)MLX90640_MS_BYTE(eeData[59]);
+    
+    kvScale = MLX90640_NIBBLE3(eeData[56]);
+    mlx90640->cpKv = cpKv / POW2(kvScale);
        
     mlx90640->cpAlpha[0] = alphaSP[0];
     mlx90640->cpAlpha[1] = alphaSP[1];
@@ -1382,7 +1257,7 @@ static void ExtractCPParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], p
 
 //------------------------------------------------------------------------------
 
-static void ExtractCILCParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static void ExtractCILCParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     float ilChessC[3];
     uint8_t calibrationModeEE;
@@ -1419,7 +1294,7 @@ static void ExtractCILCParameters(const uint16_t eeData[MLX90640_EEPROM_LENGTH],
 
 //------------------------------------------------------------------------------
 
-int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], paramsMLX90640 *mlx90640)
+static int ExtractDeviatingPixels(const uint16_t *eeData, paramsMLX90640 *mlx90640)
 {
     uint16_t pixCnt = 0;
     uint16_t brokenPixCnt = 0;
@@ -1434,7 +1309,7 @@ int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], params
     }
         
     pixCnt = 0;    
-    while (pixCnt < 768 && brokenPixCnt < 5 && outlierPixCnt < 5)
+    while (pixCnt < MLX90640_PIXEL_NUM && brokenPixCnt < 5 && outlierPixCnt < 5)
     {
         if(eeData[pixCnt+64] == 0)
         {
@@ -1453,15 +1328,15 @@ int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], params
     
     if(brokenPixCnt > 4)  
     {
-        warn = -3;
+        warn = -MLX90640_BROKEN_PIXELS_NUM_ERROR;
     }         
     else if(outlierPixCnt > 4)  
     {
-        warn = -4;
+        warn = -MLX90640_OUTLIER_PIXELS_NUM_ERROR;
     }
     else if((brokenPixCnt + outlierPixCnt) > 4)  
     {
-        warn = -5;
+        warn = -MLX90640_BAD_PIXELS_NUM_ERROR;
     } 
     else
     {
@@ -1512,28 +1387,30 @@ int ExtractDeviatingPixels(const uint16_t eeData[MLX90640_EEPROM_LENGTH], params
 
  static int CheckAdjacentPixels(uint16_t pix1, uint16_t pix2)
  {
-     int pixPosDif;
      
-     pixPosDif = pix1 - pix2;
-     if(pixPosDif > -34 && pixPosDif < -30)
-     {
-         return -6;
-     } 
+     int pixPosDif;
+     uint16_t lp1 = pix1 >> 5;
+     uint16_t lp2 = pix2 >> 5;
+     uint16_t cp1 = pix1 - (lp1 << 5);
+     uint16_t cp2 = pix2 - (lp2 << 5);
+     
+     pixPosDif = lp1 - lp2;
      if(pixPosDif > -2 && pixPosDif < 2)
      {
-         return -6;
+        pixPosDif = cp1 - cp2;
+        if(pixPosDif > -2 && pixPosDif < 2)
+        {
+            return -6;
+        }
+
      } 
-     if(pixPosDif > 30 && pixPosDif < 34)
-     {
-         return -6;
-     }
-     
+      
      return 0;    
  }
  
 //------------------------------------------------------------------------------
  
-static float GetMedianInPlaceSort(float *values, int n)
+static float GetMedian(float *values, int n)
  {
     float temp;
     
@@ -1552,7 +1429,7 @@ static float GetMedianInPlaceSort(float *values, int n)
     
     if(n%2==0) 
     {
-        return ((values[n/2] + values[n/2 - 1]) / 2.0f);
+        return ((values[n/2] + values[n/2 - 1]) / 2.0);
         
     } 
     else 
@@ -1564,11 +1441,11 @@ static float GetMedianInPlaceSort(float *values, int n)
 
 //------------------------------------------------------------------------------
 
-static int IsPixelBad(uint16_t pixel_idx,const paramsMLX90640 *params)
+static int IsPixelBad(uint16_t pixel,const paramsMLX90640 *params)
 {
     for(int i=0; i<5; i++)
     {
-        if(pixel_idx == params->outlierPixels[i] || pixel_idx == params->brokenPixels[i])
+        if(pixel == params->outlierPixels[i] || pixel == params->brokenPixels[i])
         {
             return 1;
         }    
