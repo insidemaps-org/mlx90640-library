@@ -121,7 +121,7 @@ float MLX90640_GetVdd(const uint16_t frameData[MLX90640_FRAME_LENGTH], const par
 float MLX90640_GetTa(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params);
 void MLX90640_GetImage(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float result[MLX90640_PIXEL_TOTAL]);
 void MLX90640_CalculateTo(const uint16_t frameData[MLX90640_FRAME_LENGTH], const paramsMLX90640 *params, float emissivity, float Treflected, float result[MLX90640_PIXEL_TOTAL]);
-void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params);
+void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params);
 enum {
     MLX90640_Zone_1 = 0,
     MLX90640_Zone_2 = 1,

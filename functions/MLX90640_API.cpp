@@ -155,10 +155,10 @@ MLX90640_Result_t MLX90640_VerifyFrameData(const uint16_t frameData[MLX90640_FRA
 
 }
 
-    
+
 MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH])
 {
-    uint16_t dataReady = 1;
+    uint16_t dataReady = 0;
     uint16_t controlRegister1;
     uint16_t statusRegister = 0;
     int error = 1;
@@ -172,12 +172,12 @@ MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[M
         }    
         dataReady = statusRegister & MLX90640_STATUS_NEW_DATA_IN_RAM_FLAG;
     }      
-    /*
+  
     error = MLX90640_I2CWrite(slaveAddr, MLX90640_STATUS_REGISTER, 0x0030);
     if(error == -1)
     {
         return error;
-    }*/
+    }
                      
     error = MLX90640_I2CRead(slaveAddr, MLX90640_RAM_PIXELS_START, MLX90640_PIXEL_TOTAL, frameData); 
     if(error != 0)
@@ -194,32 +194,41 @@ MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[M
     error = MLX90640_I2CRead(slaveAddr, MLX90640_CONTROL_REGISTER, 1, &controlRegister1);
     frameData[MLX90640_FRAME_CONTROL_REGISTER] = controlRegister1;
     frameData[MLX90640_FRAME_SUBPAGE] = statusRegister & MLX90640_STATUS_SUBPAGE_MASK;
-    
+
     if(error != 0)
     {
         return error;
     }
     
-    error = MLX90640_VerifyFrameData(&frameData[MLX90640_PIXEL_TOTAL]);
-    if(error != 0)
+    error = ValidateAuxData(&frameData[MLX90640_PIXEL_TOTAL]);
+    if (error != 0)
     {
         return error;
     }
+    
+    error = ValidateFrameData(frameData);
+    if (error != 0)
+    {
+        return error;
+    }
+    
     return frameData[MLX90640_FRAME_SUBPAGE];    
 }
 
-int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH])
+
+static int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH])
 {
-    for(int line=0; line<MLX90640_PIXEL_ROWS; line++)
+    for(int line=0; line<MLX90640_PIXEL_COLS; line++)
     {
-        int i = MLX90640_PIXEL_IDX(0,line);
+        int i = MLX90640_PIXEL_IDX(line,0);
         if((frameData[i] == 0x7FFF) && (line%2 == frameData[MLX90640_FRAME_SUBPAGE])) return -8;
     }    
         
     return 0;    
 }
 
-int ValidateAuxData(const uint16_t *auxData)
+
+static int ValidateAuxData(const uint16_t *auxData)
 {
     
     if(auxData[0] == 0x7FFF) return -8;    
@@ -725,7 +734,7 @@ int MLX90640_GetSubPageNumber(const uint16_t frameData[MLX90640_FRAME_LENGTH])
 }    
 
 //------------------------------------------------------------------------------
-void MLX90640_BadPixelsCorrection(uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params)
+void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params)
 {   
     float ap[4];
     uint8_t pix;
