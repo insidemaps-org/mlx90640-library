@@ -218,9 +218,9 @@ MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[M
 
 static int ValidateFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH])
 {
-    for(int line=0; line<MLX90640_PIXEL_COLS; line++)
+    for(int line=0; line<MLX90640_PIXEL_ROWS; line++)
     {
-        int i = MLX90640_PIXEL_IDX(line,0);
+        int i = MLX90640_PIXEL_IDX(0,line);
         if((frameData[i] == 0x7FFF) && (line%2 == frameData[MLX90640_FRAME_SUBPAGE])) return -8;
     }    
         
