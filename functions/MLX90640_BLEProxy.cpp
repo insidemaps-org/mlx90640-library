@@ -67,7 +67,12 @@ const uint16_t* MLX90640_BLEProxy_GetTestSequencePtr() {
 
 const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr() {
     if (eeprom_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_Eeprom) {
-        printf("MLX90640_BLEProxyResult_GetEEPROMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04x\n",eeprom_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_RAM);
+        printf("MLX90640_BLEProxyResult_GetEEPROMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04X\n",eeprom_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_Eeprom);
+        return nullptr;
+    }
+
+    if (!eeprom_updated) {
+        printf("MLX90640_BLEProxyResult_GetEEPROMPtr: EEPROM data not updated!\n");
         return nullptr;
     }
 
@@ -88,8 +93,13 @@ const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr() {
     return eeprom_data;
 }
 const uint16_t* MLX90640_BLEProxy_GetRAMPtr() {
+    if (!ram_frame_updated) {
+        printf("\nMLX90640_BLEProxy_GetRAMPtr: RAM data not updated!\n");
+        return nullptr;
+    }
+
     if (ram_frame_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_RAM) {
-        printf("MLX90640_BLEProxyResult_GetEEPROMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04x\n",ram_frame_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_Eeprom);
+        printf("MLX90640_BLEProxy_GetRAMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04x\n",ram_frame_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_RAM);
         return nullptr;
     }
     return ram_frame_data;
@@ -209,22 +219,22 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
 		printf("MLX90640_I2CRead:(MLX90640_BLEProxy: ) slaveAddr=0x%02x should be 0x33\n",slaveAddr);
 		return -1;
 	}
-	uint16_t *ptr = nullptr;
+	const uint16_t *ptr = nullptr;
 	if (MLX90640_EEPROMStart <= startAddress && startAddress + nMemAddressRead < MLX90640_EEPROMEnd)
 	{
-		if (!eeprom_updated) {
-			printf("MLX90640_I2CRead:(MLX90640_BLEProxy: ) eeprom read: data was not updated from Hero\n");
+		ptr = MLX90640_BLEProxy_GetEEPROMPtr();
+		if (!ptr) {
 			return -1;
 		}
-		ptr = &eeprom_data[startAddress - MLX90640_EEPROMStart];
+		ptr += startAddress - MLX90640_EEPROMStart;
 	}
 	else if (MLX90640_RAMStart <= startAddress && startAddress + nMemAddressRead < MLX90640_RAMEnd)
 	{
-		if (!ram_frame_updated) {
-			printf("MLX90640_I2CRead:(MLX90640_BLEProxy: ) frame ram read: data was not updated from Hero\n");
+		ptr = MLX90640_BLEProxy_GetRAMPtr();
+		if (!ptr) {
 			return -1;
 		}
-		ptr = &ram_frame_data[startAddress - MLX90640_RAMStart];
+		ptr += startAddress - MLX90640_RAMStart;
 	}
 	else if (MLX90640_RegsStart <= startAddress && startAddress + nMemAddressRead < MLX90640_RegsEnd)
 	{
@@ -263,7 +273,7 @@ int MLX90640_I2CWrite(uint8_t slaveAddr, uint16_t writeAddress, uint16_t data)
 		control_register_requested_data = data;
 		return 0;
 	} else if (writeAddress == MLX90640_StatusRegister)  {
-		ram_frame_updated = 0;
+		//ram_frame_updated = 0;
 		return 0;
 	} else {
 
