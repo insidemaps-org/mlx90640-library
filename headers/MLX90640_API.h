@@ -90,6 +90,9 @@ typedef struct
 ///0 indicates success
 typedef int MLX90640_Result_t;
 enum {
+    MLX90640_Result_FileIOVersion = -129,
+    MLX90640_Result_FileIOError = -128,
+
     MLX90640_Result_Ok = 0
 };
 
@@ -142,6 +145,41 @@ inline MLX90640_Zone_t MLX90640_Zone_55fov(int pixelindex) {
         return MLX90640_Zone_2;
     }
 }
+
+
+///File IO
+//////////////////////////////////////////////////////////////////////////////////
+typedef struct  {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t reserved;
+    uint32_t data_len;
+} MLX90640_FileStructureHeader_t;
+
+typedef struct  {
+    float Ta;
+    float Vdd;
+    uint16_t eeprom[MLX90640_EEPROM_LENGTH];
+    uint16_t frame[MLX90640_FRAME_LENGTH];
+    float Tobject[MLX90640_PIXEL_TOTAL];
+
+}MLX90640_FileStructureData_t;
+
+typedef struct  {
+    MLX90640_FileStructureHeader_t header;
+    MLX90640_FileStructureData_t data;
+} MLX90640_FileStructure_t;
+
+MLX90640_Result_t MLX90640_FileIO_Read(const char* filename, MLX90640_FileStructure_t* out);
+
+MLX90640_Result_t MLX90640_FileIO_Write(
+    const char* filename, 
+    const paramsMLX90640* params,
+    const uint16_t eeprom[MLX90640_EEPROM_LENGTH],
+    const uint16_t frame[MLX90640_FRAME_LENGTH],
+    const float Tobject[MLX90640_PIXEL_TOTAL]
+);
+
 
 
 ///Pass known eeprom and frame data and compare to hardcoded expected result

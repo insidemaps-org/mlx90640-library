@@ -34,10 +34,11 @@ enum {
 typedef uint8_t MLX90640_BLEProxyResult_t;
 
 enum {
-    MLX90640_BLEProxy_MemBlock_RAM = 1,
+    MLX90640_BLEProxy_MemBlock_TestSequence = 1,
     MLX90640_BLEProxy_MemBlock_EEPROM = 2,
-    MLX90640_BLEProxy_MemBlock_StatusRegister = 3, 
-    MLX90640_BLEProxy_MemBlock_ControlRegister = 4,
+    MLX90640_BLEProxy_MemBlock_RAM = 3,
+    MLX90640_BLEProxy_MemBlock_StatusRegister = 4, 
+    MLX90640_BLEProxy_MemBlock_ControlRegister = 5,
 };
 
 enum {
@@ -51,6 +52,7 @@ MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t
 
 int MLX90640_BLEProxy_HaveControlRegisterUpdate(uint16_t* value);
 
+const uint16_t* MLX90640_BLEProxy_GetTestSequencePtr();
 const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr();
 const uint16_t* MLX90640_BLEProxy_GetRAMPtr();
 

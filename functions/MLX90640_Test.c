@@ -1,7 +1,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <cmath>
+#include <math.h>
 #include "../headers/MLX90640_API.h"
 
 

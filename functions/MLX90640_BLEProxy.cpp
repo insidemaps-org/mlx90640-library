@@ -38,8 +38,8 @@ enum MLX90640_AddressMap
 };
 
 enum {
-    MLX90640_BLEPROXY_FRAME_LENGTH = MLX90640_FRAME_LENGTH + 3,
-    HERO_MemBank_MagicNumber_Synthetic = 0x1234,
+    MLX90640_BLEPROXY_FRAME_LENGTH = MLX90640_FRAME_LENGTH + 1,
+    HERO_MemBank_MagicNumber_TestSequence = 0x1234,
     HERO_MemBank_MagicNumber_Eeprom = 0xBABE,
     HERO_MemBank_MagicNumber_RAM = 0xC0DE
 
@@ -47,8 +47,13 @@ enum {
 };
 
 
-static uint16_t eeprom_data[MLX90640_FRAME_LENGTH];
-static uint16_t ram_frame_data[MLX90640_FRAME_LENGTH];
+static uint16_t test_sequence_data[MLX90640_BLEPROXY_FRAME_LENGTH];
+
+
+static uint16_t eeprom_data[MLX90640_BLEPROXY_FRAME_LENGTH];
+static uint8_t eeprom_updated = 0;
+static uint16_t ram_frame_data[MLX90640_BLEPROXY_FRAME_LENGTH];
+static uint8_t ram_frame_updated = 0;
 
 static uint16_t status_register_data = 0xFFFF;
 static uint16_t control_register_data = 0xFFFF;
@@ -56,7 +61,9 @@ static uint16_t control_register_requested_data = 0xFFFF;
 
 #define length_of(_array) (sizeof(_array) / sizeof(_array[0]))
 
-
+const uint16_t* MLX90640_BLEProxy_GetTestSequencePtr() {
+	return test_sequence_data;
+}
 
 const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr() {
     if (eeprom_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_Eeprom) {
@@ -100,13 +107,23 @@ MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t
 	uint16_t expected_magic_number = 0;
 
 
-	if (which == MLX90640_BLEProxy_MemBlock_EEPROM)
+
+	if (which == MLX90640_BLEProxy_MemBlock_TestSequence)
+	{
+		ptr = &test_sequence_data[0];
+        ptr_end = &test_sequence_data[length_of(test_sequence_data)];
+		ptr_magic_number = ptr + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
+		expected_magic_number = HERO_MemBank_MagicNumber_TestSequence;
+		ram_frame_updated = 0;
+		eeprom_updated = 0;
+	}
+	else if (which == MLX90640_BLEProxy_MemBlock_EEPROM)
 	{
 		ptr = &eeprom_data[0];
         ptr_end = &eeprom_data[length_of(eeprom_data)];
-		ptr_magic_number = ptr_end + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
+		ptr_magic_number = ptr + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
 		expected_magic_number = HERO_MemBank_MagicNumber_Eeprom;
-
+		ram_frame_updated = 0;
 	}
 	else if (which == MLX90640_BLEProxy_MemBlock_RAM)
 	{
@@ -115,7 +132,7 @@ MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t
 
 		ptr_ctrl = ptr + MLX90640_FRAME_CONTROL_REGISTER;
 		ptr_status = ptr + MLX90640_FRAME_STATUS_REGISTER;
-		ptr_magic_number = ptr_end + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
+		ptr_magic_number = ptr + MLX90640_FRAME_MAGIC_NUMBER_INDEX;
 		expected_magic_number = HERO_MemBank_MagicNumber_RAM;
     }
 	else if (which == MLX90640_BLEProxy_MemBlock_ControlRegister || which == MLX90640_BLEProxy_MemBlock_StatusRegister )
@@ -133,25 +150,32 @@ MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t
 
     ptr += offset/2;
     len /= 2;
-    for (int i=0;i<len;i++) {
-        if (ptr >= ptr_end) {
-			break;
+    for (int i=0;i<len;i++,ptr++) {
+        if (ptr < ptr_end) {
+	        *ptr = data[i*2] << 8 | data[i*2+1]; //Data is little endian
         }
-        *ptr = data[i*2] << 8 | data[i*2+1]; //Data is little endian
 		if (ptr == ptr_ctrl) {
 			control_register_data = *ptr;
 			control_register_requested_data = control_register_data;
 		}
 		if (ptr == ptr_status) {
 			status_register_data = *ptr;
+
+			status_register_data |= MLX90640_STAT_DATA_READY_MASK;
 		}
 		if (ptr == ptr_magic_number) {
 			if (*ptr != expected_magic_number) {
 				printf("MLX90640_BLEProxy: Invalid magic number 0x%04X expected 0x%04X\n",*ptr ,expected_magic_number);
         		return MLX90640_BLEProxyResult_InvalidParam;
+			} else {
+				if (which == MLX90640_BLEProxy_MemBlock_EEPROM) {
+					eeprom_updated = 1;
+				}
+				else if (which == MLX90640_BLEProxy_MemBlock_RAM) {
+					ram_frame_updated = 1;
+				}
 			}
 		}
-        ptr++;
     }
 
 
@@ -167,6 +191,8 @@ void MLX90640_I2CInit(void)
 	//read ROM
 	//read EEPROM
 	//read RAM
+	eeprom_updated = 0;
+	ram_frame_updated = 1;
 }
 
 int MLX90640_I2CGeneralReset(void)
@@ -186,10 +212,18 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
 	uint16_t *ptr = nullptr;
 	if (MLX90640_EEPROMStart <= startAddress && startAddress + nMemAddressRead < MLX90640_EEPROMEnd)
 	{
+		if (!eeprom_updated) {
+			printf("MLX90640_I2CRead:(MLX90640_BLEProxy: ) eeprom read: data was not updated from Hero\n");
+			return -1;
+		}
 		ptr = &eeprom_data[startAddress - MLX90640_EEPROMStart];
 	}
 	else if (MLX90640_RAMStart <= startAddress && startAddress + nMemAddressRead < MLX90640_RAMEnd)
 	{
+		if (!ram_frame_updated) {
+			printf("MLX90640_I2CRead:(MLX90640_BLEProxy: ) frame ram read: data was not updated from Hero\n");
+			return -1;
+		}
 		ptr = &ram_frame_data[startAddress - MLX90640_RAMStart];
 	}
 	else if (MLX90640_RegsStart <= startAddress && startAddress + nMemAddressRead < MLX90640_RegsEnd)
@@ -228,7 +262,11 @@ int MLX90640_I2CWrite(uint8_t slaveAddr, uint16_t writeAddress, uint16_t data)
 	if (writeAddress == MLX90640_ControlRegister) {
 		control_register_requested_data = data;
 		return 0;
+	} else if (writeAddress == MLX90640_StatusRegister)  {
+		ram_frame_updated = 0;
+		return 0;
 	} else {
+
 	    printf("MLX90640_BLEProxy: I2C proxy cannot write addr=0x%04x data=0x%04x unless its control register\n",writeAddress,data);
 	}
     return -1;

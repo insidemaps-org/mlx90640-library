@@ -1429,7 +1429,7 @@ static float GetMedian(float *values, int n)
     
     if(n%2==0) 
     {
-        return ((values[n/2] + values[n/2 - 1]) / 2.0);
+        return ((values[n/2] + values[n/2 - 1]) / 2.0f);
         
     } 
     else 
