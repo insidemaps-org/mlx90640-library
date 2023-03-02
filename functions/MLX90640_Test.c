@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
+#include <stdbool.h>
 #include "../headers/MLX90640_API.h"
 
 
@@ -408,7 +409,7 @@ static const uint16_t frame1_data_alt[834]  = {
 
 
 
-const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which) {
+const uint16_t* MLX90640_Test_GetTestData(enum MLX90640_TEST_DATA which) {
     switch (which) {
         case MLX90640_TEST_DATA_EEPROM: return eeprom_data;
         case MLX90640_TEST_DATA_FRAME0: return ram_data_frame0;
@@ -418,6 +419,6 @@ const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which) {
         case MLX90640_TEST_DATA_ALT_FRAME0: return frame0_data_alt;
         case MLX90640_TEST_DATA_ALT_FRAME1: return frame1_data_alt;
     }
-    return nullptr;
+    return 0;
 }
 
