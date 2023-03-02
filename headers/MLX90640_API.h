@@ -196,7 +196,7 @@ enum MLX90640_TEST_DATA {
     MLX90640_TEST_DATA_ALT_FRAME0,
     MLX90640_TEST_DATA_ALT_FRAME1,
 } ;
-const uint16_t* MLX90640_Test_GetTestData(MLX90640_TEST_DATA which);
+const uint16_t* MLX90640_Test_GetTestData(enum MLX90640_TEST_DATA which);
 
 
 
