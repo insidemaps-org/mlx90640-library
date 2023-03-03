@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-#include <MLX90640_I2C_Driver.h>
+#include <MLX90640_BLEProxy.h>
 #include <MLX90640_API.h>
 #include <MLX90640_Registers.h>
 #include <math.h>

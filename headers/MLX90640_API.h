@@ -106,7 +106,7 @@ MLX90640_Result_t MLX90640_DumpEE(uint8_t slaveAddr, uint16_t eeData[MLX90640_EE
 MLX90640_Result_t MLX90640_SynchFrame(uint8_t slaveAddr);
 MLX90640_Result_t MLX90640_TriggerMeasurement(uint8_t slaveAddr);
 MLX90640_SubPage_t MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t frameData[MLX90640_FRAME_LENGTH]);
-MLX90640_Result_t MLX90640_VerifyFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
+///MLX90640_Result_t MLX90640_VerifyFrameData(const uint16_t frameData[MLX90640_FRAME_LENGTH]);
 MLX90640_Result_t MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
 MLX90640_Result_t MLX90640_GetCurResolution(uint8_t slaveAddr);
 MLX90640_Result_t MLX90640_SetRefreshRate(uint8_t slaveAddr, uint8_t refreshRate);   

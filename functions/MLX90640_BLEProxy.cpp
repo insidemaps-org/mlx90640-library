@@ -68,12 +68,12 @@ const uint16_t* MLX90640_BLEProxy_GetTestSequencePtr() {
 const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr() {
     if (eeprom_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_Eeprom) {
         printf("MLX90640_BLEProxyResult_GetEEPROMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04X\n",eeprom_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_Eeprom);
-        return nullptr;
+        return 0;
     }
 
     if (!eeprom_updated) {
         printf("MLX90640_BLEProxyResult_GetEEPROMPtr: EEPROM data not updated!\n");
-        return nullptr;
+        return 0;
     }
 
 	if ((eeprom_data[0x000F]&0xFF) != 0x33 ||
@@ -95,25 +95,25 @@ const uint16_t* MLX90640_BLEProxy_GetEEPROMPtr() {
 const uint16_t* MLX90640_BLEProxy_GetRAMPtr() {
     if (!ram_frame_updated) {
         printf("\nMLX90640_BLEProxy_GetRAMPtr: RAM data not updated!\n");
-        return nullptr;
+        return 0;
     }
 
     if (ram_frame_data[MLX90640_FRAME_LENGTH] != HERO_MemBank_MagicNumber_RAM) {
         printf("MLX90640_BLEProxy_GetRAMPtr: Read frame: Magic number is not correct: 0x%04x expected:0x%04x\n",ram_frame_data[MLX90640_FRAME_LENGTH],HERO_MemBank_MagicNumber_RAM);
-        return nullptr;
+        return 0;
     }
     return ram_frame_data;
 }
 
 
 MLX90640_BLEProxyResult_t  MLX90640_BLEProxy_Update(MLX90640_BLEProxy_MemBlock_t which, int offset,int len, const uint8_t* data) {
-    uint16_t* ptr = nullptr;
+    uint16_t* ptr = 0;
 
-    const uint16_t* ptr_end = nullptr;
+    const uint16_t* ptr_end = 0;
 
-	const uint16_t* ptr_ctrl = nullptr;
-	const uint16_t* ptr_status = nullptr;
-	const uint16_t* ptr_magic_number = nullptr;
+	const uint16_t* ptr_ctrl = 0;
+	const uint16_t* ptr_status = 0;
+	const uint16_t* ptr_magic_number = 0;
 	uint16_t expected_magic_number = 0;
 
 
@@ -219,7 +219,7 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
 		printf("MLX90640_I2CRead:(MLX90640_BLEProxy: ) slaveAddr=0x%02x should be 0x33\n",slaveAddr);
 		return -1;
 	}
-	const uint16_t *ptr = nullptr;
+	const uint16_t *ptr = 0;
 	if (MLX90640_EEPROMStart <= startAddress && startAddress + nMemAddressRead < MLX90640_EEPROMEnd)
 	{
 		ptr = MLX90640_BLEProxy_GetEEPROMPtr();
