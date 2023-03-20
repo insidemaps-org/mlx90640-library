@@ -302,4 +302,3 @@ void MLX90640_I2CFreqSet(int freq)
 
 
 
-
