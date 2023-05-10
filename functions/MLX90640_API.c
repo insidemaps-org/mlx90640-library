@@ -14,9 +14,8 @@
  * limitations under the License.
  *
  */
-#include <MLX90640_BLEProxy.h>
+#include <MLX90640_I2C_Driver.h>
 #include <MLX90640_API.h>
-#include <MLX90640_Registers.h>
 #include <math.h>
 
 static void ExtractVDDParameters(const uint16_t *eeData, paramsMLX90640 *mlx90640);
@@ -658,7 +657,7 @@ int MLX90640_GetSubPageNumber(const uint16_t *frameData)
 }    
 
 //------------------------------------------------------------------------------
-void MLX90640_BadPixelsCorrection(const uint16_t *pixels, float *to, int mode,const  paramsMLX90640 *params)
+void MLX90640_BadPixelsCorrection(const uint16_t pixels[MLX90640_PIXEL_TOTAL], float to[MLX90640_PIXEL_TOTAL], int mode,const paramsMLX90640 *params)
 {   
     float ap[4];
     uint8_t pix;
@@ -1429,7 +1428,7 @@ static float GetMedian(float *values, int n)
     
     if(n%2==0) 
     {
-        return ((values[n/2] + values[n/2 - 1]) / 2.0f);
+        return ((values[n/2] + values[n/2 - 1]) / 2.0);
         
     } 
     else 
